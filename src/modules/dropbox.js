@@ -61,9 +61,12 @@ hello.init({
 			// The dropbox login window is a different size.
 			p.options.window_width = 1000;
 			p.options.window_height = 1000;
+			
+			// Dropbox oauth2 doesn't like display parameter
+			delete p.qs.display;
 		},
 
-		/*
+		
 		// DropBox does not allow Unsecure HTTP URI's in the redirect_uri field
 		// ... otherwise i'd love to use OAuth2
 		// Follow request https://forums.dropbox.com/topic.php?id=106505
@@ -74,14 +77,14 @@ hello.init({
 			auth	: "https://www.dropbox.com/1/oauth2/authorize",
 			grant	: 'https://api.dropbox.com/1/oauth2/token'
 		},
-		*/
+		/*
 		oauth : {
 			version : "1.0",
 			auth	: "https://www.dropbox.com/1/oauth/authorize",
 			request : 'https://api.dropbox.com/1/oauth/request_token',
 			token	: 'https://api.dropbox.com/1/oauth/access_token'
 		},
-
+		*/
 		// API Base URL
 		base	: "https://api.dropbox.com/1/",
 
