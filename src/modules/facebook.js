@@ -91,9 +91,9 @@ hello.init({
 			email			: 'email',
 			birthday		: 'user_birthday',
 			events			: 'user_events',
-			photos			: 'user_photos,user_videos',
-			videos			: 'user_photos,user_videos',
-			friends			: 'user_friends',
+			photos			: 'user_photos',
+			videos			: 'user_videos',
+			friends			: 'user_friends,friends_photos,friends_birthday',
 			files			: 'user_photos,user_videos',
 			
 			publish_files	: 'user_photos,user_videos,publish_actions',
