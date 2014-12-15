@@ -162,6 +162,7 @@ hello.init({
 			'me/followers' : formatFriends,
 			'me/albums' : format,
 			'me/files' : format,
+			'me/like' : formatFriends,
 			'default' : format
 		},
 
