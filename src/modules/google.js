@@ -36,7 +36,8 @@
 
 		var entry = function(a){
 
-			var media = a['media$group']['media$content'].length ? a['media$group']['media$content'][0] : {};
+			var mediaContent = a['media$group']['media$content'].length ? a['media$group']['media$content'][0] : {};
+			var mediaThumbnail = a['media$group']['media$thumbnail'].length ? a['media$group']['media$thumbnail'][0] : {};
 			var i=0, _a;
 			var p = {
 				id		: a.id.$t,
@@ -44,10 +45,10 @@
 				description	: a.summary.$t,
 				updated_time : a.updated.$t,
 				created_time : a.published.$t,
-				picture : media ? media.url : null,
-				thumbnail : media ? media.url : null,
-				width : media.width,
-				height : media.height
+				picture : mediaContent ? mediaContent.url : null,
+				thumbnail : mediaThumbnail ? mediaThumbnail.url : null,
+				width : mediaContent.width,
+				height : mediaContent.height
 //				original : a
 			};
 			// Get feed/children
@@ -436,9 +437,9 @@
 				'me/album' : function(p,callback){
 					var key = p.query.id;
 					delete p.query.id;
-					callback(key.replace("/entry/", "/feed/"));
+					callback(key.replace("/entry/", "/feed/")+'&max-results=@{limit|100}&imgmax=d');
 				},
-				'me/photos' : 'https://picasaweb.google.com/data/feed/api/user/default?alt=json&kind=photo&max-results=@{limit|100}&start-index=@{start|1}',
+				'me/photos' : 'https://picasaweb.google.com/data/feed/api/user/default?alt=json&kind=photo&max-results=@{limit|100}&start-index=@{start|1}&imgmax=d',
 
 				// https://developers.google.com/drive/v2/reference/files/list
 				'me/files' : 'drive/v2/files?q=%22@{parent|root}%22+in+parents+and+trashed=false&maxResults=@{limit|100}',
