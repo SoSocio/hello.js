@@ -96,7 +96,7 @@ hello.init({
 
 		// Map GET requests
 		get : {
-			"me"		: 'account/info',
+			"me"		: req('account/info'),
 
 			// https://www.dropbox.com/developers/core/docs#metadata
 			"me/files"	: req("metadata/@{root|dropbox}/@{parent}"),
