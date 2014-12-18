@@ -91,17 +91,17 @@ hello.init({
 		// Root
 		// BESPOKE SETTING
 		// This is says whether to use the custom environment of Dropbox or to use their own environment
-		// Because it's notoriously difficult for DropBox too provide access from other webservices, this defaults to Sandbox
-		root : 'sandbox',
+		// Because it's notoriously difficult for DropBox too provide access from other webservices, this defaults to dropbox
+		root : 'dropbox',
 
 		// Map GET requests
 		get : {
 			"me"		: 'account/info',
 
 			// https://www.dropbox.com/developers/core/docs#metadata
-			"me/files"	: req("metadata/@{root|sandbox}/@{parent}"),
-			"me/folder"	: req("metadata/@{root|sandbox}/@{id}"),
-			"me/folders" : req('metadata/@{root|sandbox}/'),
+			"me/files"	: req("metadata/@{root|dropbox}/@{parent}"),
+			"me/folder"	: req("metadata/@{root|dropbox}/@{id}"),
+			"me/folders" : req('metadata/@{root|dropbox}/'),
 
 			"default" : function(p,callback){
 				if(p.path.match("https://api-content.dropbox.com/1/files/")){
@@ -126,14 +126,14 @@ hello.init({
 					p.data.file = hello.utils.toBlob(p.data.file);
 				}
 
-				callback('https://api-content.dropbox.com/1/files_put/@{root|sandbox}/'+path+"/"+file_name);
+				callback('https://api-content.dropbox.com/1/files_put/@{root|dropbox}/'+path+"/"+file_name);
 			},
 			"me/folders" : function(p, callback){
 
 				var name = p.data.name;
 				p.data = {};
 
-				callback('fileops/create_folder?root=@{root|sandbox}&'+hello.utils.param({
+				callback('fileops/create_folder?root=@{root|dropbox}&'+hello.utils.param({
 					path : name
 				}));
 			}
@@ -141,8 +141,8 @@ hello.init({
 
 		// Map DELETE requests 
 		del : {
-			"me/files" : "fileops/delete?root=@{root|sandbox}&path=@{id}",
-			"me/folder" : "fileops/delete?root=@{root|sandbox}&path=@{id}"
+			"me/files" : "fileops/delete?root=@{root|dropbox}&path=@{id}",
+			"me/folder" : "fileops/delete?root=@{root|dropbox}&path=@{id}"
 		},
 
 
