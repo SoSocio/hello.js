@@ -437,7 +437,7 @@
 				'me/album' : function(p,callback){
 					var key = p.query.id;
 					delete p.query.id;
-					callback(key.replace("/entry/", "/feed/")+'&max-results=@{limit|100}&imgmax=d');
+					callback(key.replace("/entry/", "/feed/")+'&max-results=@{limit|100}&imgmax=d&start-index=@{start|1}');
 				},
 				'me/photos' : 'https://picasaweb.google.com/data/feed/api/user/default?alt=json&kind=photo&max-results=@{limit|100}&start-index=@{start|1}&imgmax=d',
 
