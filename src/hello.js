@@ -1247,7 +1247,7 @@ hello.utils.extend( hello.utils, {
 			var popup = window.open(
 				url,
 				'_blank',
-				"resizeable=true,height=" + windowHeight + ",width=" + windowWidth + ",left=" + left + ",top="  + top
+				"resizeable=true,scrollbars=yes,height=" + windowHeight + ",width=" + windowWidth + ",left=" + left + ",top="  + top
 			);
 
 			// PhoneGap support
