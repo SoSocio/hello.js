@@ -206,14 +206,13 @@ hello.utils.extend( hello, {
 		// Create self
 		// An object which inherits its parent as the prototype.
 		// And constructs a new event chain.
-		var self = this.use(),
-			utils = self.utils;
+		var self = this,
+			utils = self.utils,
+			promise = utils.Promise();
 
 		// Get parameters
 		var p = utils.args({network:'s', options:'o', callback:'f'}, arguments);
 
-		// Apply the args
-		self.args = p;
 
 		// Local vars
 		var url;
@@ -222,31 +221,29 @@ hello.utils.extend( hello, {
 		var opts = p.options = utils.merge(self.settings, p.options || {} );
 
 		// Network
-		p.network = self.settings.default_service = p.network || self.settings.default_service;
+		p.network = p.network || self.settings.default_service;
 
-		//
-		// Bind listener
-		self.on('complete', p.callback);
+		// Bind callback to both reject and fulfill states
+		promise.proxy.then( p.callback, p.callback );
+
+		// Trigger an event on the global listener
+		function emit(s, value){
+			hello.emit(s, value);
+		}
+
+		promise.proxy.then( emit.bind(this,"auth.login auth"), emit.bind(this,"auth.failed auth") );
+		
 
 		// Is our service valid?
 		if( typeof(p.network) !== 'string' || !( p.network in self.services ) ){
 			// trigger the default login.
 			// ahh we dont have one.
-			self.emitAfter('error complete', {error:{
-				code : 'invalid_network',
-				message : 'The provided network was not recognized'
-			}});
-			return self;
+			return promise.reject( error('invalid_network','The provided network was not recognized' ) );
 		}
 
 		//
 		var provider  = self.services[p.network];
 
-		//
-		// Callback
-		// Save the callback until state comes back.
-		//
-		var responded = false;
 
 		//
 		// Create a global listener to capture events triggered out of scope
@@ -260,17 +257,9 @@ hello.utils.extend( hello, {
 				obj = JSON.parse(str);
 			}
 			else {
-				obj = {
-					error : {
-						code : 'cancelled',
-						message : 'The authentication was not completed'
-					}
-				};
+				obj = error( 'cancelled', 'The authentication was not completed' );
 			}
 
-			//
-			// Cancel the popup close listener
-			responded = true;
 
 			//
 			// Handle these response using the local
@@ -281,17 +270,15 @@ hello.utils.extend( hello, {
 				// This fixes an IE10 bug i think... atleast it does for me.
 				utils.store(obj.network,obj);
 
-				// Trigger local complete events
-				self.emit("complete success login auth.login auth", {
+				// fulfill a successful login
+				promise.fulfill({
 					network : obj.network,
 					authResponse : obj
 				});
 			}
 			else{
-				// Trigger local complete events
-				self.emit("complete error failed auth.failed", {
-					error : obj.error
-				});
+				// Reject a successful login
+				promise.reject(obj);
 			}
 		});
 
@@ -306,12 +293,13 @@ hello.utils.extend( hello, {
 
 		//
 		// Response Type
+		// May be a space-delimited list of multiple, complementary types
 		//
 		var response_type = provider.oauth.response_type || opts.response_type;
 
 		// Fallback to token if the module hasn't defined a grant url
-		if( response_type === 'code' && !provider.oauth.grant ){
-			response_type = 'token';
+		if( /\bcode\b/.test(response_type) && !provider.oauth.grant ){
+			response_type = response_type.replace(/\bcode\b/, 'token');
 		}
 
 
@@ -320,9 +308,9 @@ hello.utils.extend( hello, {
 		// querystring parameters, we may pass our own arguments to form the querystring
 		//
 		p.qs = {
-			client_id	: provider.id,
-			response_type : response_type,
-			redirect_uri : redirect_uri,
+			client_id	: encodeURIComponent( provider.id ),
+			response_type : encodeURIComponent( response_type ),
+			redirect_uri : encodeURIComponent( redirect_uri ),
 			display		: opts.display,
 			scope		: 'basic',
 			state		: {
@@ -331,7 +319,7 @@ hello.utils.extend( hello, {
 				display		: opts.display,
 				callback	: callback_id,
 				state		: opts.state,
-				redirect_uri: redirect_uri,
+				redirect_uri: redirect_uri
 			}
 		};
 
@@ -399,14 +387,14 @@ hello.utils.extend( hello, {
 				if(diff.length===0){
 
 					// Ok trigger the callback
-					self.emitAfter("complete success login", {
+					promise.fulfill({
 						unchanged : true,
 						network : p.network,
 						authResponse : session
 					});
 
 					// Nothing has changed
-					return self;
+					return promise;
 				}
 			}
 		}
@@ -430,7 +418,7 @@ hello.utils.extend( hello, {
 
 		// Add OAuth to state
 		// Where the service is going to take advantage of the oauth_proxy
-		if( response_type !== "token" ||
+		if( !/\btoken\b/.test(response_type) ||
 			parseInt(provider.oauth.version,10) < 2 ||
 			( opts.display === 'none' && provider.oauth.grant && session && session.refresh_token ) ){
 
@@ -444,8 +432,7 @@ hello.utils.extend( hello, {
 
 
 		// Convert state to a string
-		p.qs.state = JSON.stringify(p.qs.state);
-
+		p.qs.state = encodeURIComponent( JSON.stringify(p.qs.state) );
 
 
 		//
@@ -454,7 +441,7 @@ hello.utils.extend( hello, {
 		if( parseInt(provider.oauth.version,10) === 1 ){
 
 			// Turn the request to the OAuth Proxy for 3-legged auth
-			url = utils.qs( opts.oauth_proxy, p.qs );
+			url = utils.qs( opts.oauth_proxy, p.qs, encodeFunction );
 		}
 
 		// Refresh token
@@ -464,17 +451,15 @@ hello.utils.extend( hello, {
 			p.qs.refresh_token = session.refresh_token;
 
 			// Define the request path
-			url = utils.qs( opts.oauth_proxy, p.qs );
+			url = utils.qs( opts.oauth_proxy, p.qs, encodeFunction );
 		}
 
 		// 
 		else{
 
-			url = utils.qs( provider.oauth.auth, p.qs );
+			url = utils.qs( provider.oauth.auth, p.qs, encodeFunction );
 		}
 
-
-		self.emit("notice", "Authorization URL " + url );
 
 
 		//
@@ -497,21 +482,17 @@ hello.utils.extend( hello, {
 			var timer = setInterval(function(){
 				if(!popup||popup.closed){
 					clearInterval(timer);
-					if(!responded){
+					if(!promise.state){
 
-						var error = {
-							code:"cancelled",
-							message:"Login has been cancelled"
-						};
+						var resp = error("cancelled","Login has been cancelled");
 
 						if(!popup){
-							error = {
-								code:'blocked',
-								message :'Popup was blocked'
-							};
+							resp = error("blocked",'Popup was blocked');
 						}
 
-						self.emit("complete failed error", {error:error, network:p.network });
+						resp.network = p.network;
+
+						promise.reject(resp);
 					}
 				}
 			}, 100);
@@ -521,7 +502,20 @@ hello.utils.extend( hello, {
 			window.location = url;
 		}
 
-		return self;
+		return promise.proxy;
+
+
+		function error(code,message){
+			return {
+				error : {
+					code : code,
+					message : message
+				}
+			};
+		}
+
+
+		function encodeFunction(s){return s;}
 	},
 
 
@@ -533,29 +527,37 @@ hello.utils.extend( hello, {
 	//
 	logout : function(){
 
-		// Create self
-		// An object which inherits its parent as the prototype.
-		// And constructs a new event chain.
-		var self = this.use();
-
+		var self = this;
 		var utils = self.utils;
+
+		// Create a new promise
+		var promise = utils.Promise();
 
 		var p = utils.args({name:'s', options: 'o', callback:"f" }, arguments);
 
 		p.options = p.options || {};
 
 		// Add callback to events
-		self.on('complete', p.callback);
+		promise.proxy.then( p.callback, p.callback );
+
+		// Trigger an event on the global listener
+		function emit(s, value){
+			hello.emit(s, value);
+		}
+
+		promise.proxy.then( emit.bind(this,"auth.logout auth"), emit.bind(this,"error") );
+
+
+
 
 		// Netowrk
-		p.name = p.name || self.settings.default_service;
+		p.name = p.name || this.settings.default_service;
 
 
 		if( p.name && !( p.name in self.services ) ){
-			self.emitAfter("complete error", {error:{
-				code : 'invalid_network',
-				message : 'The network was unrecognized'
-			}});
+
+			promise.reject( error( 'invalid_network', 'The network was unrecognized' ) );
+
 		}
 		else if(p.name && utils.store(p.name)){
 
@@ -563,10 +565,10 @@ hello.utils.extend( hello, {
 			var callback = function(opts){
 
 				// Remove from the store
-				self.utils.store(p.name,'');
+				utils.store(p.name,'');
 
 				// Emit events by default
-				self.emitAfter("complete logout success auth.logout auth", hello.utils.merge( {network:p.name}, opts || {} ) );
+				promise.fulfill( hello.utils.merge( {network:p.name}, opts || {} ) );
 			};
 
 			//
@@ -589,7 +591,7 @@ hello.utils.extend( hello, {
 					}
 					else if(logout === undefined){
 						// the callback function will handle the response.
-						return self;
+						return promise.proxy;
 					}
 				}
 			}
@@ -598,22 +600,20 @@ hello.utils.extend( hello, {
 			// Remove local credentials
 			callback(_opts);
 		}
-		else if(!p.name){
-			for(var x in self.services){if(self.services.hasOwnProperty(x)){
-				self.logout(x);
-			}}
-			// remove the default
-			self.service(false);
-			// trigger callback
-		}
 		else{
-			self.emitAfter("complete error", {error:{
-				code : 'invalid_session',
-				message : 'There was no session to remove'
-			}});
+			promise.reject( error( 'invalid_session','There was no session to remove' ) );
 		}
 
-		return self;
+		return promise.proxy;
+
+		function error(code,message){
+			return {
+				error : {
+					code : code,
+					message : message
+				}
+			};
+		}
 	},
 
 
@@ -629,10 +629,6 @@ hello.utils.extend( hello, {
 		service = service || this.settings.default_service;
 
 		if( !service || !( service in this.services ) ){
-			this.emit("complete error", {error:{
-				code : 'invalid_network',
-				message : 'The network was unrecognized'
-			}});
 			return null;
 		}
 
@@ -661,7 +657,7 @@ hello.utils.extend( hello.utils, {
 	// Append the querystring to a url
 	// @param string url
 	// @param object parameters
-	qs : function(url, params){
+	qs : function(url, params, formatFunction){
 		if(params){
 			var reg;
 			for(var x in params){
@@ -672,7 +668,7 @@ hello.utils.extend( hello.utils, {
 				}
 			}
 		}
-		return url + (!this.isEmpty(params) ? ( url.indexOf('?') > -1 ? "&" : "?" ) + this.param(params) : '');
+		return url + (!this.isEmpty(params) ? ( url.indexOf('?') > -1 ? "&" : "?" ) + this.param(params,formatFunction) : '');
 	},
 	
 
@@ -681,30 +677,35 @@ hello.utils.extend( hello.utils, {
 	// Explode/Encode the parameters of an URL string/object
 	// @param string s, String to decode
 	//
-	param : function(s){
+	param : function( s, formatFunction ){
 		var b,
 			a = {},
 			m;
 		
 		if(typeof(s)==='string'){
 
+			formatFunction = formatFunction || decodeURIComponent;
+
 			m = s.replace(/^[\#\?]/,'').match(/([^=\/\&]+)=([^\&]+)/g);
 			if(m){
 				for(var i=0;i<m.length;i++){
 					b = m[i].match(/([^=]+)=(.*)/);
-					a[b[1]] = decodeURIComponent( b[2] );
+					a[b[1]] = formatFunction( b[2] );
 				}
 			}
 			return a;
 		}
 		else {
+
+			formatFunction = formatFunction || encodeURIComponent;
+
 			var o = s;
 		
 			a = [];
 
 			for( var x in o ){if(o.hasOwnProperty(x)){
 				if( o.hasOwnProperty(x) ){
-					a.push( [x, o[x] === '?' ? '?' : encodeURIComponent(o[x]) ].join('=') );
+					a.push( [x, o[x] === '?' ? '?' : formatFunction(o[x]) ].join('=') );
 				}
 			}}
 
@@ -1064,6 +1065,186 @@ hello.utils.extend( hello.utils, {
 		};
 	})(),
 	*/
+	
+
+	/*!
+	**  Thenable -- Embeddable Minimum Strictly-Compliant Promises/A+ 1.1.1 Thenable
+	**  Copyright (c) 2013-2014 Ralf S. Engelschall <http://engelschall.com>
+	**  Licensed under The MIT License <http://opensource.org/licenses/MIT>
+	**  Source-Code distributed on <http://github.com/rse/thenable>
+	*/
+
+	Promise : (function(){
+		/*  promise states [Promises/A+ 2.1]  */
+		var STATE_PENDING   = 0;                                         /*  [Promises/A+ 2.1.1]  */
+		var STATE_FULFILLED = 1;                                         /*  [Promises/A+ 2.1.2]  */
+		var STATE_REJECTED  = 2;                                         /*  [Promises/A+ 2.1.3]  */
+
+		/*  promise object constructor  */
+		var api = function (executor) {
+			/*  optionally support non-constructor/plain-function call  */
+			if (!(this instanceof api))
+				return new api(executor);
+
+			/*  initialize object  */
+			this.id           = "Thenable/1.0.6";
+			this.state        = STATE_PENDING; /*  initial state  */
+			this.fulfillValue = undefined;     /*  initial value  */     /*  [Promises/A+ 1.3, 2.1.2.2]  */
+			this.rejectReason = undefined;     /*  initial reason */     /*  [Promises/A+ 1.5, 2.1.3.2]  */
+			this.onFulfilled  = [];            /*  initial handlers  */
+			this.onRejected   = [];            /*  initial handlers  */
+
+			/*  provide optional information-hiding proxy  */
+			this.proxy = {
+				then: this.then.bind(this)
+			};
+
+			/*  support optional executor function  */
+			if (typeof executor === "function")
+				executor.call(this, this.fulfill.bind(this), this.reject.bind(this));
+		};
+
+		/*  promise API methods  */
+		api.prototype = {
+			/*  promise resolving methods  */
+			fulfill: function (value) { return deliver(this, STATE_FULFILLED, "fulfillValue", value); },
+			reject:  function (value) { return deliver(this, STATE_REJECTED,  "rejectReason", value); },
+
+			/*  "The then Method" [Promises/A+ 1.1, 1.2, 2.2]  */
+			then: function (onFulfilled, onRejected) {
+				var curr = this;
+				var next = new api();                                    /*  [Promises/A+ 2.2.7]  */
+				curr.onFulfilled.push(
+					resolver(onFulfilled, next, "fulfill"));             /*  [Promises/A+ 2.2.2/2.2.6]  */
+				curr.onRejected.push(
+					resolver(onRejected,  next, "reject" ));             /*  [Promises/A+ 2.2.3/2.2.6]  */
+				execute(curr);
+				return next.proxy;                                       /*  [Promises/A+ 2.2.7, 3.3]  */
+			}
+		};
+
+		/*  deliver an action  */
+		var deliver = function (curr, state, name, value) {
+			if (curr.state === STATE_PENDING) {
+				curr.state = state;                                      /*  [Promises/A+ 2.1.2.1, 2.1.3.1]  */
+				curr[name] = value;                                      /*  [Promises/A+ 2.1.2.2, 2.1.3.2]  */
+				execute(curr);
+			}
+			return curr;
+		};
+
+		/*  execute all handlers  */
+		var execute = function (curr) {
+			if (curr.state === STATE_FULFILLED)
+				execute_handlers(curr, "onFulfilled", curr.fulfillValue);
+			else if (curr.state === STATE_REJECTED)
+				execute_handlers(curr, "onRejected",  curr.rejectReason);
+		};
+
+		/*  execute particular set of handlers  */
+		var execute_handlers = function (curr, name, value) {
+			/* global process: true */
+			/* global setImmediate: true */
+			/* global setTimeout: true */
+
+			/*  short-circuit processing  */
+			if (curr[name].length === 0)
+				return;
+
+			/*  iterate over all handlers, exactly once  */
+			var handlers = curr[name];
+			curr[name] = [];                                             /*  [Promises/A+ 2.2.2.3, 2.2.3.3]  */
+			var func = function () {
+				for (var i = 0; i < handlers.length; i++)
+					handlers[i](value);                                  /*  [Promises/A+ 2.2.5]  */
+			};
+
+			/*  execute procedure asynchronously  */                     /*  [Promises/A+ 2.2.4, 3.1]  */
+			if (typeof process === "object" && typeof process.nextTick === "function")
+				process.nextTick(func);
+			else if (typeof setImmediate === "function")
+				setImmediate(func);
+			else
+				setTimeout(func, 0);
+		};
+
+		/*  generate a resolver function  */
+		var resolver = function (cb, next, method) {
+			return function (value) {
+				if (typeof cb !== "function")                            /*  [Promises/A+ 2.2.1, 2.2.7.3, 2.2.7.4]  */
+					next[method].call(next, value);                      /*  [Promises/A+ 2.2.7.3, 2.2.7.4]  */
+				else {
+					var result;
+					try { result = cb(value); }                          /*  [Promises/A+ 2.2.2.1, 2.2.3.1, 2.2.5, 3.2]  */
+					catch (e) {
+						next.reject(e);                                  /*  [Promises/A+ 2.2.7.2]  */
+						return;
+					}
+					resolve(next, result);                               /*  [Promises/A+ 2.2.7.1]  */
+				}
+			};
+		};
+
+		/*  "Promise Resolution Procedure"  */                           /*  [Promises/A+ 2.3]  */
+		var resolve = function (promise, x) {
+			/*  sanity check arguments  */                               /*  [Promises/A+ 2.3.1]  */
+			if (promise === x || promise.proxy === x) {
+				promise.reject(new TypeError("cannot resolve promise with itself"));
+				return;
+			}
+
+			/*  surgically check for a "then" method
+				(mainly to just call the "getter" of "then" only once)  */
+			var then;
+			if ((typeof x === "object" && x !== null) || typeof x === "function") {
+				try { then = x.then; }                                   /*  [Promises/A+ 2.3.3.1, 3.5]  */
+				catch (e) {
+					promise.reject(e);                                   /*  [Promises/A+ 2.3.3.2]  */
+					return;
+				}
+			}
+
+			/*  handle own Thenables    [Promises/A+ 2.3.2]
+				and similar "thenables" [Promises/A+ 2.3.3]  */
+			if (typeof then === "function") {
+				var resolved = false;
+				try {
+					/*  call retrieved "then" method */                  /*  [Promises/A+ 2.3.3.3]  */
+					then.call(x,
+						/*  resolvePromise  */                           /*  [Promises/A+ 2.3.3.3.1]  */
+						function (y) {
+							if (resolved) return; resolved = true;       /*  [Promises/A+ 2.3.3.3.3]  */
+							if (y === x)                                 /*  [Promises/A+ 3.6]  */
+								promise.reject(new TypeError("circular thenable chain"));
+							else
+								resolve(promise, y);
+						},
+
+						/*  rejectPromise  */                            /*  [Promises/A+ 2.3.3.3.2]  */
+						function (r) {
+							if (resolved) return; resolved = true;       /*  [Promises/A+ 2.3.3.3.3]  */
+							promise.reject(r);
+						}
+					);
+				}
+				catch (e) {
+					if (!resolved)                                       /*  [Promises/A+ 2.3.3.3.3]  */
+						promise.reject(e);                               /*  [Promises/A+ 2.3.3.3.4]  */
+				}
+				return;
+			}
+
+			/*  handle other values  */
+			promise.fulfill(x);                                          /*  [Promises/A+ 2.3.4, 2.3.3.4]  */
+		};
+
+		/*  export API  */
+		return api;
+	})(),
+
+
+
+
 	//
 	// Event
 	// A contructor superclass for adding event menthods, on, off, emit.
@@ -1567,11 +1748,6 @@ hello.utils.extend( hello.utils, {
 hello.utils.Event.call(hello);
 
 
-// Shimming old deprecated functions
-hello.subscribe = hello.on;
-hello.trigger = hello.emit;
-hello.unsubscribe = hello.off;
-
 
 
 
@@ -1746,18 +1922,15 @@ hello.utils.responseHandler( window, window.opener || window.parent );
 
 hello.api = function(){
 
-	// get arguments
-	var p = this.utils.args({path:'s!', query : "o", method : "s", data:'o', timeout:'i', callback:"f" }, arguments);
+	// Shorthand
+	var self = this;
+	var utils = self.utils;
 
-	// Create self
-	// An object which inherits its parent as the prototype.
-	// And constructs a new event chain.
-	var self = this.use(),
-		utils = self.utils;
+	// Construct a new Promise object
+	var promise = utils.Promise();
 
-
-	// Reference arguments
-	self.args = p;
+	// Arguments
+	var p = utils.args({path:'s!', query : "o", method : "s", data:'o', timeout:'i', callback:"f" }, arguments);
 
 	// method
 	p.method = (p.method || 'get').toLowerCase();
@@ -1779,14 +1952,14 @@ hello.api = function(){
 
 	// Completed event
 	// callback
-	self.on('complete', p.callback);
-	
+	promise.then( p.callback, p.callback );
+
 
 	// Path
 	// Remove the network from path, e.g. facebook:/me/friends
 	// results in { network : facebook, path : me/friends }
 	if(!p.path){
-		return sendError('invalid_path', 'Missing the path parameter from the request');
+		return promise.reject( error( 'invalid_path', 'Missing the path parameter from the request' ) );
 	}
 	p.path = p.path.replace(/^\/+/,'');
 	var a = (p.path.split(/[\/\:]/,2)||[])[0].toLowerCase();
@@ -1807,14 +1980,14 @@ hello.api = function(){
 	// INVALID
 	// Is there no service by the given network name?
 	if(!o){
-		return sendError("invalid_network", "Could not match the service requested: " + p.network);
+		return promise.reject( error( "invalid_network", "Could not match the service requested: " + p.network) );
 	}
 
 	// PATH
 	// as long as the path isn't flagged as unavaiable, e.g. path == false
 
 	if( !( !(p.method in o) || !(p.path in o[p.method]) || o[p.method][p.path] !== false ) ){
-		return sendError('invalid_path', 'The provided path is not available on the selected network');
+		return promise.reject( error( 'invalid_path', 'The provided path is not available on the selected network') );
 	}
 
 
@@ -1836,24 +2009,6 @@ hello.api = function(){
 
 	if(!("timeout" in p)){
 		p.timeout = self.settings.timeout;
-	}
-
-
-
-	// PROGRESS
-	// Listen to upload and download progress events on XHR events
-
-	if(!("onuploadprogress" in p)){
-		// Default it to pump it out as...
-		p.onuploadprogress = function(e){
-			self.emit("uploadprogress", e);
-		};
-	}
-	if(!("onprogress" in p)){
-		// Default it to pump it out as...
-		p.onprogress = function(e){
-			self.emit("progress", e);
-		};
 	}
 
 
@@ -1944,7 +2099,7 @@ hello.api = function(){
 	}
 	
 
-	return self;
+	return promise.proxy;
 
 
 	// if url needs a base
@@ -1959,9 +2114,7 @@ hello.api = function(){
 				delete p.query[key];
 			}
 			else if(!defaults){
-				// This doesn't cancel the request
-				// Perhaps it should
-				sendError( "missing_attribute", "The attribute " + key + " is missing from the request");
+				promise.reject( error( "missing_attribute", "The attribute " + key + " is missing from the request" ) );
 			}
 			return val;
 		});
@@ -2031,19 +2184,24 @@ hello.api = function(){
 			//
 			// Dispatch to listeners
 			// Emit events which pertain to the formatted response
-			self.emit("complete " + (!r || "error" in r ? 'error' : 'success'), r);
+			if(!r || "error" in r){
+				promise.reject(r);
+			}
+			else{
+				promise.fulfill(r);
+			}
 		});
 	}
 
 
 	// Error handling
-	function sendError(code,message){
-		return self.emitAfter("complete error", {
+	function error(code,message){
+		return {
 			error:{
 				code:code,
 				message:message
 			}
-		});
+		};
 	}
 
 };
@@ -2249,7 +2407,7 @@ hello.utils.extend( hello.utils, {
 				path = utils.qs( p.oauth_proxy, {
 					path : path,
 					access_token : sign||'', // This will prompt the request to be signed as though it is OAuth1
-					then : (p.method.toLowerCase() === 'get' ? 'redirect' : 'proxy'),
+					then : p.proxy_response_type || (p.method.toLowerCase() === 'get' ? 'redirect' : 'proxy'),
 					method : p.method.toLowerCase(),
 					suppress_response_codes : true
 				});
@@ -2927,11 +3085,10 @@ utils.extend(utils, {
 
 })(hello);
 
-//
-// Hello then
-// Making hellojs compatible with promises
 
-(function(){
+
+
+
 
 // MDN
 // Polyfill IE8, does not support native Function.bind
@@ -2953,213 +3110,14 @@ if (!Function.prototype.bind) {
 		return d;
 	};
 }
-	
 
-/*!
-**  Thenable -- Embeddable Minimum Strictly-Compliant Promises/A+ 1.1.1 Thenable
-**  Copyright (c) 2013-2014 Ralf S. Engelschall <http://engelschall.com>
-**  Licensed under The MIT License <http://opensource.org/licenses/MIT>
-**  Source-Code distributed on <http://github.com/rse/thenable>
-*/
+// hello.legacy.js
 
-var Thenable = (function(){
-	/*  promise states [Promises/A+ 2.1]  */
-	var STATE_PENDING   = 0;                                         /*  [Promises/A+ 2.1.1]  */
-	var STATE_FULFILLED = 1;                                         /*  [Promises/A+ 2.1.2]  */
-	var STATE_REJECTED  = 2;                                         /*  [Promises/A+ 2.1.3]  */
+// Shimming old deprecated functions
+hello.subscribe = hello.on;
+hello.trigger = hello.emit;
+hello.unsubscribe = hello.off;
 
-	/*  promise object constructor  */
-	var api = function (executor) {
-		/*  optionally support non-constructor/plain-function call  */
-		if (!(this instanceof api))
-			return new api(executor);
-
-		/*  initialize object  */
-		this.id           = "Thenable/1.0.6";
-		this.state        = STATE_PENDING; /*  initial state  */
-		this.fulfillValue = undefined;     /*  initial value  */     /*  [Promises/A+ 1.3, 2.1.2.2]  */
-		this.rejectReason = undefined;     /*  initial reason */     /*  [Promises/A+ 1.5, 2.1.3.2]  */
-		this.onFulfilled  = [];            /*  initial handlers  */
-		this.onRejected   = [];            /*  initial handlers  */
-
-		/*  provide optional information-hiding proxy  */
-		this.proxy = {
-			then: this.then.bind(this)
-		};
-
-		/*  support optional executor function  */
-		if (typeof executor === "function")
-			executor.call(this, this.fulfill.bind(this), this.reject.bind(this));
-	};
-
-	/*  promise API methods  */
-	api.prototype = {
-		/*  promise resolving methods  */
-		fulfill: function (value) { return deliver(this, STATE_FULFILLED, "fulfillValue", value); },
-		reject:  function (value) { return deliver(this, STATE_REJECTED,  "rejectReason", value); },
-
-		/*  "The then Method" [Promises/A+ 1.1, 1.2, 2.2]  */
-		then: function (onFulfilled, onRejected) {
-			var curr = this;
-			var next = new api();                                    /*  [Promises/A+ 2.2.7]  */
-			curr.onFulfilled.push(
-				resolver(onFulfilled, next, "fulfill"));             /*  [Promises/A+ 2.2.2/2.2.6]  */
-			curr.onRejected.push(
-				resolver(onRejected,  next, "reject" ));             /*  [Promises/A+ 2.2.3/2.2.6]  */
-			execute(curr);
-			return next.proxy;                                       /*  [Promises/A+ 2.2.7, 3.3]  */
-		}
-	};
-
-	/*  deliver an action  */
-	var deliver = function (curr, state, name, value) {
-		if (curr.state === STATE_PENDING) {
-			curr.state = state;                                      /*  [Promises/A+ 2.1.2.1, 2.1.3.1]  */
-			curr[name] = value;                                      /*  [Promises/A+ 2.1.2.2, 2.1.3.2]  */
-			execute(curr);
-		}
-		return curr;
-	};
-
-	/*  execute all handlers  */
-	var execute = function (curr) {
-		if (curr.state === STATE_FULFILLED)
-			execute_handlers(curr, "onFulfilled", curr.fulfillValue);
-		else if (curr.state === STATE_REJECTED)
-			execute_handlers(curr, "onRejected",  curr.rejectReason);
-	};
-
-	/*  execute particular set of handlers  */
-	var execute_handlers = function (curr, name, value) {
-		/* global process: true */
-		/* global setImmediate: true */
-		/* global setTimeout: true */
-
-		/*  short-circuit processing  */
-		if (curr[name].length === 0)
-			return;
-
-		/*  iterate over all handlers, exactly once  */
-		var handlers = curr[name];
-		curr[name] = [];                                             /*  [Promises/A+ 2.2.2.3, 2.2.3.3]  */
-		var func = function () {
-			for (var i = 0; i < handlers.length; i++)
-				handlers[i](value);                                  /*  [Promises/A+ 2.2.5]  */
-		};
-
-		/*  execute procedure asynchronously  */                     /*  [Promises/A+ 2.2.4, 3.1]  */
-		if (typeof process === "object" && typeof process.nextTick === "function")
-			process.nextTick(func);
-		else if (typeof setImmediate === "function")
-			setImmediate(func);
-		else
-			setTimeout(func, 0);
-	};
-
-	/*  generate a resolver function  */
-	var resolver = function (cb, next, method) {
-		return function (value) {
-			if (typeof cb !== "function")                            /*  [Promises/A+ 2.2.1, 2.2.7.3, 2.2.7.4]  */
-				next[method].call(next, value);                      /*  [Promises/A+ 2.2.7.3, 2.2.7.4]  */
-			else {
-				var result;
-				try { result = cb(value); }                          /*  [Promises/A+ 2.2.2.1, 2.2.3.1, 2.2.5, 3.2]  */
-				catch (e) {
-					next.reject(e);                                  /*  [Promises/A+ 2.2.7.2]  */
-					return;
-				}
-				resolve(next, result);                               /*  [Promises/A+ 2.2.7.1]  */
-			}
-		};
-	};
-
-	/*  "Promise Resolution Procedure"  */                           /*  [Promises/A+ 2.3]  */
-	var resolve = function (promise, x) {
-		/*  sanity check arguments  */                               /*  [Promises/A+ 2.3.1]  */
-		if (promise === x || promise.proxy === x) {
-			promise.reject(new TypeError("cannot resolve promise with itself"));
-			return;
-		}
-
-		/*  surgically check for a "then" method
-			(mainly to just call the "getter" of "then" only once)  */
-		var then;
-		if ((typeof x === "object" && x !== null) || typeof x === "function") {
-			try { then = x.then; }                                   /*  [Promises/A+ 2.3.3.1, 3.5]  */
-			catch (e) {
-				promise.reject(e);                                   /*  [Promises/A+ 2.3.3.2]  */
-				return;
-			}
-		}
-
-		/*  handle own Thenables    [Promises/A+ 2.3.2]
-			and similar "thenables" [Promises/A+ 2.3.3]  */
-		if (typeof then === "function") {
-			var resolved = false;
-			try {
-				/*  call retrieved "then" method */                  /*  [Promises/A+ 2.3.3.3]  */
-				then.call(x,
-					/*  resolvePromise  */                           /*  [Promises/A+ 2.3.3.3.1]  */
-					function (y) {
-						if (resolved) return; resolved = true;       /*  [Promises/A+ 2.3.3.3.3]  */
-						if (y === x)                                 /*  [Promises/A+ 3.6]  */
-							promise.reject(new TypeError("circular thenable chain"));
-						else
-							resolve(promise, y);
-					},
-
-					/*  rejectPromise  */                            /*  [Promises/A+ 2.3.3.3.2]  */
-					function (r) {
-						if (resolved) return; resolved = true;       /*  [Promises/A+ 2.3.3.3.3]  */
-						promise.reject(r);
-					}
-				);
-			}
-			catch (e) {
-				if (!resolved)                                       /*  [Promises/A+ 2.3.3.3.3]  */
-					promise.reject(e);                               /*  [Promises/A+ 2.3.3.3.4]  */
-			}
-			return;
-		}
-
-		/*  handle other values  */
-		promise.fulfill(x);                                          /*  [Promises/A+ 2.3.4, 2.3.3.4]  */
-	};
-
-	/*  export API  */
-	return api;
-})();
-
-
-// overwrite login
-function thenify(method){
-	return function(){
-		var api = method.apply(this, arguments);
-
-		var promise = Thenable(function(fullfill, reject){
-			api.on('success', fullfill)
-				.on('error', reject)
-				.on('*', function(){
-					var args = Array.prototype.slice.call(arguments);
-					// put the last argument (the event_name) to the front
-					args.unshift(args.pop());
-					melge.emit.apply(melge, args);
-				});
-		});
-
-		var melge = hello.utils.Event.call(promise.proxy);
-
-		return melge;
-	};
-}
-
-
-hello.login = thenify(hello.login);
-hello.api = thenify(hello.api);
-hello.logout = thenify(hello.logout);
-
-
-})(hello);
 //
 // Dropbox
 //
@@ -3174,11 +3132,11 @@ function formatError(o){
 	}
 }
 	
-function format_file(o){
+function format_file(o, headers, req){
 
 	if(typeof(o)!=='object' ||
-		"Blob" in window && o instanceof Blob ||
-		"ArrayBuffer" in window && o instanceof ArrayBuffer){
+		(typeof(Blob)!=='undefined' && o instanceof Blob) ||
+		(typeof(ArrayBuffer)!=='undefined' && o instanceof ArrayBuffer)){
 		// this is a file, let it through unformatted
 		return;
 	}
@@ -3189,7 +3147,7 @@ function format_file(o){
 	var path = o.root + o.path.replace(/\&/g, '%26');
 	if(o.thumb_exists){
 		o.thumbnail = hello.settings.oauth_proxy + "?path=" +
-		encodeURIComponent('https://api-content.dropbox.com/1/thumbnails/'+ path + '?format=jpeg&size=m') + '&access_token=' + hello.getAuthResponse('dropbox').access_token;
+		encodeURIComponent('https://api-content.dropbox.com/1/thumbnails/'+ path + '?format=jpeg&size=m') + '&access_token=' + req.query.access_token;
 	}
 	o.type = ( o.is_dir ? 'folder' : o.mime_type );
 	o.name = o.path.replace(/.*\//g,'');
@@ -3198,7 +3156,7 @@ function format_file(o){
 	}
 	else{
 		o.downloadLink = hello.settings.oauth_proxy + "?path=" +
-		encodeURIComponent('https://api-content.dropbox.com/1/files/'+ path ) + '&access_token=' + hello.getAuthResponse('dropbox').access_token;
+		encodeURIComponent('https://api-content.dropbox.com/1/files/'+ path ) + '&access_token=' + req.query.access_token;
 		o.file = 'https://api-content.dropbox.com/1/files/'+ path;
 	}
 	if(!o.id){
@@ -3319,7 +3277,7 @@ hello.init({
 				delete o.display_name;
 				return o;
 			},
-			"default"	: function(o){
+			"default"	: function(o,headers,req){
 				formatError(o);
 				if(o.is_dir && o.contents){
 					o.data = o.contents;
@@ -3327,11 +3285,11 @@ hello.init({
 
 					for(var i=0;i<o.data.length;i++){
 						o.data[i].root = o.root;
-						format_file(o.data[i]);
+						format_file(o.data[i],headers,req);
 					}
 				}
 
-				format_file(o);
+				format_file(o,headers,req);
 
 				if(o.is_deleted){
 					o.success = true;
@@ -3381,7 +3339,7 @@ hello.init({
 
 function formatUser(o){
 	if(o.id){
-		o.thumbnail = o.picture = 'http://graph.facebook.com/'+o.id+'/picture';
+		o.thumbnail = o.picture = 'https://graph.facebook.com/'+o.id+'/picture';
 	}
 	return o;
 }
@@ -3395,12 +3353,12 @@ function formatFriends(o){
 	return o;
 }
 
-function format(o){
+function format(o,headers,req){
 	if (typeof o === 'boolean') {
 		o = {success: o};
 	}
 	if(o && "data" in o){
-		var token = hello.getAuthResponse('facebook').access_token;
+		var token = req.query.access_token;
 		for(var i=0;i<o.data.length;i++){
 			var d = o.data[i];
 			if(d.picture){
@@ -3427,6 +3385,10 @@ hello.init({
 		name : 'Facebook',
 
 		login : function(p){
+			// Support Facebook's unique auth_type parameter
+			if(p.options.auth_type){
+				p.qs.auth_type = p.options.auth_type;
+			}
 			// The facebook login window is a different size.
 			p.options.window_width = 580;
 			p.options.window_height = 400;
@@ -3497,7 +3459,10 @@ hello.init({
 			'me/albums' : 'me/albums',
 			'me/album' : '@{id}/photos',
 			'me/photos' : 'me/photos',
-			'me/photo' : '@{id}'
+			'me/photo' : '@{id}',
+			
+			'friend/albums' : '@{id}/albums',
+			'friend/photos' : '@{id}/photos'
 
 			// PAGINATION
 			// https://developers.facebook.com/docs/reference/api/pagination/
@@ -3602,15 +3567,7 @@ function withUser(cb){
 
 	var auth = hello.getAuthResponse("flickr");
 
-	if(auth&&auth.user_nsid){
-		cb(auth.user_nsid);
-	}
-	else{
-		hello.api(getApiUrl("flickr.test.login"), function(userJson){
-			// If the
-			cb( checkResponse(userJson, "user").id );
-		});
-	}
+	cb( auth && auth.user_nsid ? auth.user_nsid : null );
 }
 
 function sign(url, params){
@@ -4002,7 +3959,7 @@ hello.init({
 //
 // GOOGLE API
 //
-(function(hello, window){
+(function(hello){
 
 	"use strict";
 
@@ -4129,11 +4086,11 @@ hello.init({
 		o.thumbnail = o.picture;
 	}
 
-	function formatFriends(o){
+	function formatFriends(o, headers, req){
 		paging(o);
 		var r = [];
 		if("feed" in o && "entry" in o.feed){
-			var token = hello.getAuthResponse('google').access_token;
+			var token = req.query.access_token;
 			for(var i=0;i<o.feed.entry.length;i++){
 				var a = o.feed.entry[i];
 
@@ -4191,10 +4148,6 @@ hello.init({
 		}
 	}
 
-	//
-	// Misc
-	var utils = hello.utils;
-
 
 	// Multipart
 	// Construct a multipart message
@@ -4243,7 +4196,10 @@ hello.init({
 
 				// Is this a file?
 				// Files can be either Blobs or File types
-				if(item instanceof window.File || item instanceof window.Blob){
+				if(
+					(typeof(File) !== 'undefined' && item instanceof File) ||
+					(typeof(Blob) !== 'undefined' && item instanceof Blob)
+				){
 					// Read the file in
 					addFile(item);
 				}
@@ -4288,9 +4244,13 @@ hello.init({
 		
 		var data = {};
 
-		if( p.data && p.data instanceof window.HTMLInputElement ){
+		// Test for DOM element
+		if( p.data &&
+			( typeof(HTMLInputElement) !== 'undefined' && p.data instanceof HTMLInputElement )
+		){
 			p.data = { file : p.data };
 		}
+
 		if( !p.data.name && Object(Object(p.data.file).files).length && p.method === 'post' ){
 			p.data.name = p.data.file.files[0].name;
 		}
@@ -4369,7 +4329,7 @@ hello.init({
 
 	//
 	// URLS
-	var contacts_url = 'https://www.google.com/m8/feeds/contacts/default/full?alt=json&max-results=@{limit|1000}&start-index=@{start|1}';
+	var contacts_url = 'https://www.google.com/m8/feeds/contacts/default/full?v=3.0&alt=json&max-results=@{limit|1000}&start-index=@{start|1}';
 
 	//
 	// Embed
@@ -4558,7 +4518,7 @@ hello.init({
 	}
 
 
-})(hello, window);
+})(hello);
 //
 // Instagram
 //
@@ -4638,7 +4598,9 @@ hello.init({
 			'me/photos' : 'users/self/media/recent?min_id=0&count=@{limit|100}',
 			'me/friends' : 'users/self/follows?count=@{limit|100}',
 			'me/following' : 'users/self/follows?count=@{limit|100}',
-			'me/followers' : 'users/self/followed-by?count=@{limit|100}'
+			'me/followers' : 'users/self/followed-by?count=@{limit|100}',
+			
+			'friend/photos' : 'users/@{id}/media/recent?min_id=0&count=@{limit|100}'
 		},
 
 		post : {
@@ -4743,6 +4705,7 @@ function formatUser(o){
 	o.last_name = o.lastName;
 	o.name = o.formattedName || (o.first_name + ' ' + o.last_name);
 	o.thumbnail = o.pictureUrl;
+	o.email = o.emailAddress;
 }
 
 
@@ -4798,7 +4761,7 @@ hello.init({
 		base	: "https://api.linkedin.com/v1/",
 
 		get : {
-			"me"			: 'people/~:(picture-url,first-name,last-name,id,formatted-name)',
+			"me"			: 'people/~:(picture-url,first-name,last-name,id,formatted-name,email-address)',
 			"me/friends"	: 'people/~/connections?count=@{limit|500}',
 			"me/followers"	: 'people/~/connections?count=@{limit|500}',
 			"me/following"	: 'people/~/connections?count=@{limit|500}',
@@ -4818,7 +4781,7 @@ hello.init({
 				};
 
 				if(p.data.id){
-					
+
 					data["attribution"] = {
 						"share": {
 							"id": p.data.id
@@ -4828,10 +4791,12 @@ hello.init({
 				}
 				else{
 					data["comment"] = p.data.message;
-					data["content"] = {
-						"submitted-url": p.data.link,
-						"submitted-image-url": p.data.picture
-					};
+					if (p.data.picture && p.data.link) {
+						data["content"] = {
+							"submitted-url": p.data.link,
+							"submitted-image-url": p.data.picture
+						};
+					}
 				}
 
 				p.data = JSON.stringify(data);
@@ -5008,113 +4973,6 @@ function formatRequest(p,qs){
 //
 // Twitter
 //
-
-
-(function(hello){
-
-hello.init({
-	'tumblr' : {
-		// Set default window height
-		login : function(p){
-			p.options.window_width = 600;
-			p.options.window_height = 510;
-		},
-
-		// Ensure that you define an oauth_proxy
-		oauth : {
-			version : "1.0a",
-			auth	: "https://www.tumblr.com/oauth/authorize",
-			request : 'https://www.tumblr.com/oauth/request_token',
-			token	: 'https://www.tumblr.com/oauth/access_token'
-		},
-
-		base	: "https://api.tumblr.com/v2/",
-
-		get : {
-			me		: 'user/info',
-			'me/like' : 'user/likes',
-			'default' : function(p,callback){
-				if(p.path.match(/(^|\/)blog\//)){
-					delete p.query.access_token;
-					p.query.api_key = hello.services.tumblr.id;
-				}
-				callback(p.path);
-			}
-		},
-		post : {
-			'me/like' : function(p,callback){
-				p.path = 'user/like';
-				query(p,callback);
-			}
-		},
-		del : {
-			'me/like' : function(p,callback){
-				p.method = 'post';
-				p.path = 'user/unlike';
-				query(p,callback);
-			}
-		},
-
-		wrap : {
-			me : function(o){
-				if(o&&o.response&&o.response.user){
-					o = o.response.user;
-				}
-				return o;
-			},
-			'me/like' : function(o){
-				if(o&&o.response&&o.response.liked_posts){
-					o.data = o.response.liked_posts;
-					delete o.response;
-				}
-				return o;
-			},
-			'default' : function(o){
-
-				if(o.response){
-					var r = o.response;
-					if( r.posts ){
-						o.data = r.posts;
-					}
-				}
-
-				return o;
-			}
-		},
-
-		xhr : function(p,qs){
-			if(p.method !== 'get'){
-				return true;
-			}
-			return false;
-		}
-	}
-});
-
-
-// Converts post parameters to query
-function query(p,callback){
-	if(p.data){
-		extend( p.query, p.data );
-		p.data = null;
-	}
-	callback(p.path);
-}
-
-function extend(a,b){
-	for(var x in b){
-		if(b.hasOwnProperty(x)){
-			a[x] = b[x];
-		}
-	}
-}
-
-
-
-})(hello);
-//
-// Twitter
-//
 (function(hello){
 
 
@@ -5125,7 +4983,8 @@ function formatUser(o){
 			o.first_name = m[0];
 			o.last_name = m[1];
 		}
-		o.thumbnail = o.profile_image_url;
+		// See https://dev.twitter.com/overview/general/user-profile-images-and-banners
+		o.thumbnail = o.profile_image_url_https || o.profile_image_url;
 	}
 }
 
@@ -5310,9 +5169,9 @@ function arrayToDataResponse(res){
 
 (function(hello){
 
-function formatUser(o){
+function formatUser(o,headers,req){
 	if(o.id){
-		var token = hello.getAuthResponse('windows').access_token;
+		var token = req.query.access_token;
 		if(o.emails){
 			o.email =  o.emails.preferred;
 		}
@@ -5325,10 +5184,10 @@ function formatUser(o){
 	}
 }
 
-function formatFriends(o){
+function formatFriends(o, headers, req){
 	if("data" in o){
 		for(var i=0;i<o.data.length;i++){
-			formatUser(o.data[i]);
+			formatUser(o.data[i], headers, req);
 		}
 	}
 	return o;
@@ -5415,8 +5274,8 @@ hello.init({
 		},
 
 		wrap : {
-			me : function(o){
-				formatUser(o);
+			me : function(o, headers, req){
+				formatUser(o, headers, req);
 				return o;
 			},
 			'me/friends' : formatFriends,
@@ -5547,6 +5406,9 @@ hello.init({
 			// Change the default popup window to be atleast 560
 			// Yahoo does dynamically change it on the fly for the signin screen (only, what if your already signed in)
 			p.options.window_width = 560;
+
+			// Yahoo throws an parameter error if for whatever reason the state.scope contains a comma, so lets remove scope
+			try{delete p.qs.state.scope;}catch(e){}
 		},
 		/*
 		// AUTO REFRESH FIX: Bug in Yahoo can't get this to work with node-oauth-shim
@@ -5588,7 +5450,7 @@ hello.init({
 						a.push(o.last_name);
 					}
 					o.name = a.join(' ');
-					o.email = o.emails?o.emails.handle:null;
+					o.email = ( o.emails && o.emails[0] ) ? o.emails[0].handle : null;
 					o.thumbnail = o.image?o.image.imageUrl:null;
 				}
 				return o;

@@ -24,6 +24,7 @@ define([
 				testable : {
 					oauth : {
 						auth : 'https://testdemo/access',
+						grant : 'https://testdemo/grant',
 						version : 2
 					},
 					scope : {
@@ -89,12 +90,14 @@ define([
 		});
 
 		it('should throw a completed and error event if network name is wrong', function(done){
-			hello.login('invalidname', error_response('invalid_network',done) );
+			hello
+			.login('invalidname', error_response('invalid_network',done) );
 		});
 
 		it('should throw a error event if network name is wrong', function(done){
-			var instance = hello.login('invalidname');
-			instance.on('error', error_response('invalid_network',done) );
+			hello
+			.login('invalidname')
+			.then( null, error_response('invalid_network',done) );
 		});
 
 		it('should by default, trigger window.open request', function(done){
@@ -144,6 +147,25 @@ define([
 				hello.login('testable', {redirect_uri:REDIRECT_URI});
 			});
 
+			it('should URIencode `options.redirect_uri`', function(done){
+
+				var REDIRECT_URI ='http://dummydomain.com/?breakdown';
+
+				var spy = sinon.spy(function(url, name, optins){
+
+					url = safari_hack(url);
+
+					expect( url ).to.not.contain( REDIRECT_URI );
+					expect( url ).to.contain( encodeURIComponent(REDIRECT_URI) );
+
+					done();
+				});
+
+				window.open = spy;
+
+				hello.login('testable', {redirect_uri:REDIRECT_URI});
+			});
+
 			it('should permit custom scope in `options.scope` which are unique to this service', function(done){
 
 				var custom_scope = 'custom_scope';
@@ -181,6 +203,78 @@ define([
 				window.open = spy;
 
 				hello.login('testable', {scope:common_scope});
+			});
+
+			it('should use the correct and unencoded delimiter to separate scope', function(done){
+
+				var basic_scope = 'read_user,read_bikes';
+				var scope_delim = '+';
+
+				hello.init({
+					test_delimit_scope : {
+						oauth : {
+							auth : 'https://testdemo/access',
+							version : 2
+						},
+						scope_delim : scope_delim,
+						scope : {
+							'basic' : basic_scope
+						}
+					}
+				});
+
+				var spy = sinon.spy(function(url, name, optins){
+
+					url = safari_hack(url);
+
+					expect(url).to.contain(basic_scope.replace(/[\+\,\s]/, scope_delim));
+					done();
+				});
+
+				window.open = spy;
+
+				hello.login('test_delimit_scope');
+			});
+
+			it('should space encode the delimiter of multiple response_type\'s', function(done){
+
+				var opts = {
+					response_type : 'code grant_scopes'
+				};
+
+				var spy = sinon.spy(function(url, name){
+
+					url = safari_hack(url);
+
+					expect(url).to.contain( 'code%20grant_scopes' );
+					done();
+				});
+
+				window.open = spy;
+
+				hello.login('testable', opts);
+			});
+
+
+			it('should substitute "token" for "code" when there is no Grant URL defined', function(done){
+
+				var opts = {
+					response_type : 'code grant_scopes'
+				};
+
+				hello.services.testable.oauth.grant = null;
+
+				var spy = sinon.spy(function(url, name){
+
+					url = safari_hack(url);
+
+					expect(url).to.contain( 'token%20grant_scopes' );
+					done();
+				});
+
+				window.open = spy;
+
+				hello.login('testable', opts);
 			});
 
 		});

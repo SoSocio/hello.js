@@ -5,7 +5,7 @@
 
 function formatUser(o){
 	if(o.id){
-		o.thumbnail = o.picture = 'http://graph.facebook.com/'+o.id+'/picture';
+		o.thumbnail = o.picture = 'https://graph.facebook.com/'+o.id+'/picture';
 	}
 	return o;
 }
@@ -19,12 +19,12 @@ function formatFriends(o){
 	return o;
 }
 
-function format(o){
+function format(o,headers,req){
 	if (typeof o === 'boolean') {
 		o = {success: o};
 	}
 	if(o && "data" in o){
-		var token = hello.getAuthResponse('facebook').access_token;
+		var token = req.query.access_token;
 		for(var i=0;i<o.data.length;i++){
 			var d = o.data[i];
 			if(d.picture){
@@ -51,6 +51,10 @@ hello.init({
 		name : 'Facebook',
 
 		login : function(p){
+			// Support Facebook's unique auth_type parameter
+			if(p.options.auth_type){
+				p.qs.auth_type = p.options.auth_type;
+			}
 			// The facebook login window is a different size.
 			p.options.window_width = 580;
 			p.options.window_height = 400;

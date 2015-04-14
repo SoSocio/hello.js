@@ -7,7 +7,7 @@ A client-side Javascript SDK for authenticating with [OAuth2](http://tools.ietf.
 
 ## Features
 
-Here are some more demos...
+Here are some more examples...
 
 <table>
 	<thead>
@@ -129,7 +129,7 @@ Quick start shows you how to go from zero to loading in the name and picture of 
 - [Register your app domain](#1-register)
 - [Include hello.js script](#2-include-hellojs-script-in-your-page)
 - [Create the signin buttons](#3-create-the-signin-buttons)
-- [Setup listener for login and retrieve user info.](#4-add-listeners-for-the-user-login)
+- [Setup listener for login and retrieve user info](#4-add-listeners-for-the-user-login)
 - [Initiate the client_ids and all listeners](#5-configure-hellojs-with-your-client_ids-and-initiate-all-listeners)
 
 
@@ -141,11 +141,11 @@ Register your application with at least one of the following networks. Ensure yo
 <!-- 
 - [Windows Live](http://msdn.microsoft.com/en-us/library/hh243641.aspx)
 - [Google+](http://code.google.com/apis/accounts/docs/OAuth2UserAgent.html)
-- [FaceBook](http://developers.facebook.com/docs/reference/dialogs/oauth/)
+- [Facebook](http://developers.facebook.com/docs/reference/dialogs/oauth/)
 -->
-- [FaceBook](https://developers.facebook.com/apps)
+- [Facebook](https://developers.facebook.com/apps)
 - [Windows Live](http://dev.live.com/) (click on dashboard)
-- [Google +](https://code.google.com/apis/console/b/0/#:access)
+- [Google+](https://code.google.com/apis/console/b/0/#:access)
 
 
 ### 2. Include Hello.js script in your page.

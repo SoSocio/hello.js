@@ -1,5 +1,6 @@
 define([
 	'../libs/error_response',
+	'../../../src/modules/box',
 	'../../../src/modules/facebook',
 	'../../../src/modules/flickr',
 	'../../../src/modules/google',
@@ -11,6 +12,7 @@ define([
 	'../../../src/modules/linkedin',
 	'../../../src/modules/foursquare',
 	'../../../src/modules/github',
+	'../../../src/modules/bikeindex',
 	'../../../src/modules/soundcloud'
 ], function(
 //	hello
@@ -21,7 +23,7 @@ define([
 // Modules are of the following formats
 //
 
-describe( 'Modules', function(){
+describe( 'E2E Modules', function(){
 
 // Loop through all services
 for(var name in hello.services){
@@ -56,14 +58,14 @@ function setup_module_tests(module, name){
 			}
 		});
 
-		it('return error object when an api request is made with an unverified user', function(done){
+		xit('return error object when an api request is made with an unverified user', function(done){
 
 			var i=0;
 
 			this.timeout(60000);
 
 			var cb = error_response(null, function(){
-				if(++i===3)
+				if(++i===2)
 					done();
 			});
 
@@ -71,7 +73,9 @@ function setup_module_tests(module, name){
 			hello.logout(name);
 
 			// Make a request that returns an error object
-			hello(name).on("error", cb).api('me', cb).on("error", cb);
+			hello(name)
+			.api('me', cb)
+			.then(null, cb);
 		});
 		/**/
 

@@ -48,8 +48,21 @@ module.exports = function(grunt) {
 			},
 			// Combine the src files, create minified versions
 			build : {
-				'dist/hello.js' : ['src/hello.js', 'src/hello.then.js', 'src/hello.amd.js', 'src/hello.commonjs.js'],
-				'dist/hello.all.js' : ['src/hello.js', 'src/hello.then.js', 'src/modules/', 'src/hello.amd.js', 'src/hello.commonjs.js']
+				'dist/hello.js' : ['src/hello.js', 'src/hello.legacy.js', 'src/hello.amd.js', 'src/hello.commonjs.js'],
+				'dist/hello.all.js' : ['src/hello.js', 'src/hello.legacy.js',
+					'src/modules/dropbox.js',
+					'src/modules/facebook.js',
+					'src/modules/flickr.js',
+					'src/modules/foursquare.js',
+					'src/modules/github.js',
+					'src/modules/google.js',
+					'src/modules/instagram.js',
+					'src/modules/linkedin.js',
+					'src/modules/soundcloud.js',
+					'src/modules/twitter.js',
+					'src/modules/windows.js',
+					'src/modules/yahoo.js',
+				'src/hello.amd.js', 'src/hello.commonjs.js']
 			},
 			minify : {
 				'dist/hello.min.js' : 'dist/hello.js',
@@ -62,7 +75,6 @@ module.exports = function(grunt) {
 	grunt.loadNpmTasks('grunt-contrib-jshint');
 	grunt.loadNpmTasks('grunt-contrib-watch');
 	grunt.loadNpmTasks('grunt-mocha-phantomjs');
-	grunt.loadNpmTasks('grunt-karma');
 	grunt.loadNpmTasks('shunt');
 
 	grunt.registerTask('test', ['jshint', 'mocha_phantomjs']);
