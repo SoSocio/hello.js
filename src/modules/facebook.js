@@ -97,7 +97,7 @@ hello.init({
 			events			: 'user_events',
 			photos			: 'user_photos',
 			videos			: 'user_videos',
-			friends			: 'user_friends,friends_photos,friends_birthday',
+			friends			: 'user_friends',
 			files			: 'user_photos,user_videos',
 			
 			publish_files	: 'user_photos,user_videos,publish_actions',
