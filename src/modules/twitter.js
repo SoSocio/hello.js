@@ -14,6 +14,13 @@
 				token: base + 'oauth/access_token'
 			},
 
+			login: function(p) {
+				// Reauthenticate
+				// https://dev.twitter.com/oauth/reference/get/oauth/authenticate
+				var prefix = '?force_login=true';
+				this.oauth.auth = this.oauth.auth.replace(prefix, '') + (p.options.force ? prefix : '');
+			},
+
 			base: base + '1.1/',
 
 			get: {
@@ -51,7 +58,7 @@
 
 					// Tweet
 					else {
-						callback('statuses/update.json?include_entities=1&status=' + data.message);
+						callback('statuses/update.json?include_entities=1&status=' + encodeURIComponent(data.message));
 					}
 				},
 
@@ -113,8 +120,8 @@
 		if (o.id) {
 			if (o.name) {
 				var m = o.name.split(' ');
-				o.first_name = m[0];
-				o.last_name = m[1];
+				o.first_name = m.shift();
+				o.last_name = m.join(' ');
 			}
 
 			// See: https://dev.twitter.com/overview/general/user-profile-images-and-banners

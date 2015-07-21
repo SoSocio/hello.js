@@ -54,12 +54,23 @@ hello.utils.extend(hello, {
 		// API timeout in milliseconds
 		timeout: 20000,
 
+		// Popup Options
+		popup: {
+			resizable: 1,
+			scrollbars: 1,
+			width: 500,
+			height: 550
+		},
+
 		// Default service / network
 		default_service: null,
 
-		// Force sign-in
-		// When hello.login is fired, ignore current session expiry and continue with login
-		force: true,
+		// Force authentication
+		// When hello.login is fired.
+		// (null): ignore current session expiry and continue with login
+		// (true): ignore current session expiry and continue with login, ask for user to reauthenticate
+		// (false): if the current session looks good for the request scopes return the current session.
+		force: null,
 
 		// Page URL
 		// When 'display=page' this property defines where the users page should end up after redirect_uri
@@ -159,6 +170,9 @@ hello.utils.extend(hello, {
 		// Merge/override options with app defaults
 		var opts = p.options = utils.merge(_this.settings, p.options || {});
 
+		// Merge/override options with app defaults
+		opts.popup = utils.merge(_this.settings.popup, p.options.popup || {});
+
 		// Network
 		p.network = p.network || _this.settings.default_service;
 
@@ -245,10 +259,10 @@ hello.utils.extend(hello, {
 		var session = utils.store(p.network);
 
 		// Scopes (authentication permisions)
-		// Convert any array, or falsy value to a string.
-		var scope = (opts.scope || '').toString();
-
-		scope = (scope ? scope + ',' : '') + p.qs.scope;
+		// Ensure this is a string - IE has a problem moving Arrays between windows
+		// Append the setup scope
+		var SCOPE_SPLIT = /[,\s]+/;
+		var scope = (opts.scope || '').toString() + ',' + p.qs.scope;
 
 		// Append scopes from a previous session.
 		// This helps keep app credentials constant,
@@ -257,41 +271,54 @@ hello.utils.extend(hello, {
 			scope += ',' + session.scope;
 		}
 
-		// Save in the State
-		// Convert to a string because IE, has a problem moving Arrays between windows
-		p.qs.state.scope = utils.unique(scope.split(/[,\s]+/)).join(',');
+		// Convert scope to an Array
+		// - easier to manipulate
+		scope = scope.split(SCOPE_SPLIT);
 
-		// Map replace each scope with the providers default scopes
-		p.qs.scope = scope.replace(/[^,\s]+/ig, function(m) {
+		// Format remove duplicates and empty values
+		scope = utils.unique(scope).filter(filterEmpty);
+
+		// Save the the scopes to the state with the names that they were requested with.
+		p.qs.state.scope = scope.join(',');
+
+		// Map scopes to the providers naming convention
+		scope = scope.map(function(item) {
 			// Does this have a mapping?
-			if (m in provider.scope) {
-				return provider.scope[m];
+			if (item in provider.scope) {
+				return provider.scope[item];
 			}
 			else {
 				// Loop through all services and determine whether the scope is generic
 				for (var x in _this.services) {
 					var serviceScopes = _this.services[x].scope;
-					if (serviceScopes && m in serviceScopes) {
+					if (serviceScopes && item in serviceScopes) {
 						// Found an instance of this scope, so lets not assume its special
 						return '';
 					}
 				}
 
 				// This is a unique scope to this service so lets in it.
-				return m;
+				return item;
 			}
 
-		}).replace(/[,\s]+/ig, ',');
+		});
 
-		// Remove duplication and empty spaces
-		p.qs.scope = utils.unique(p.qs.scope.split(/,+/)).join(provider.scope_delim || ',');
+		// Stringify and Arrayify so that double mapped scopes are given the chance to be formatted
+		scope = scope.join(',').split(SCOPE_SPLIT);
+
+		// Again...
+		// Format remove duplicates and empty values
+		scope = utils.unique(scope).filter(filterEmpty);
+
+		// Join with the expected scope delimiter into a string
+		p.qs.scope = scope.join(provider.scope_delim || ',');
 
 		// Is the user already signed in with the appropriate scopes, valid access_token?
 		if (opts.force === false) {
 
 			if (session && 'access_token' in session && session.access_token && 'expires' in session && session.expires > ((new Date()).getTime() / 1e3)) {
 				// What is different about the scopes in the session vs the scopes in the new login?
-				var diff = utils.diff(session.scope || [], p.qs.state.scope || []);
+				var diff = utils.diff((session.scope || '').split(SCOPE_SPLIT), (p.qs.state.scope || '').split(SCOPE_SPLIT));
 				if (diff.length === 0) {
 
 					// OK trigger the callback
@@ -367,7 +394,7 @@ hello.utils.extend(hello, {
 		// Triggering popup?
 		else if (opts.display === 'popup') {
 
-			var popup = utils.popup(url, redirectUri, opts.window_width || 500, opts.window_height || 550);
+			var popup = utils.popup(url, redirectUri, opts.popup);
 
 			var timer = setInterval(function() {
 				if (!popup || popup.closed) {
@@ -395,6 +422,8 @@ hello.utils.extend(hello, {
 		return promise.proxy;
 
 		function encodeFunction(s) {return s;}
+
+		function filterEmpty(s) {return !!s;}
 	},
 
 	// Remove any data associated with a given service
@@ -512,18 +541,28 @@ hello.utils.extend(hello.utils, {
 	// @param string url
 	// @param object parameters
 	qs: function(url, params, formatFunction) {
+
 		if (params) {
-			var reg;
+
+			// Set default formatting function
+			formatFunction = formatFunction || encodeURIComponent;
+
+			// Override the items in the URL which already exist
 			for (var x in params) {
-				if (url.indexOf(x) > -1) {
-					var str = '[\\?\\&]' + x + '=[^\\&]*';
-					reg = new RegExp(str);
-					url = url.replace(reg, '');
+				var str = '([\\?\\&])' + x + '=[^\\&]*';
+				reg = new RegExp(str);
+				if (url.match(x)) {
+					url = url.replace(reg, '$1' + x + '=' + formatFunction(params[x]));
+					delete params[x];
 				}
 			}
 		}
 
-		return url + (!this.isEmpty(params) ? (url.indexOf('?') > -1 ? '&' : '?') + this.param(params, formatFunction) : '');
+		if (!this.isEmpty(params)) {
+			return url + (url.indexOf('?') > -1 ? '&' : '?') + this.param(params, formatFunction);
+		}
+
+		return url;
 	},
 
 	// Param
@@ -567,26 +606,32 @@ hello.utils.extend(hello.utils, {
 	},
 
 	// Local storage facade
-	store: (function(localStorage) {
+	store: (function() {
 
-		var a = [localStorage, window.sessionStorage];
+		var a = ['localStorage', 'sessionStorage'];
 		var i = 0;
+		var prefix = 'test';
 
 		// Set LocalStorage
-		localStorage = a[i++];
+		var localStorage;
 
-		while (localStorage) {
+		while (a[i++]) {
 			try {
-				localStorage.setItem(i, i);
-				localStorage.removeItem(i);
+				// In Chrome with cookies blocked, calling localStorage throws an error
+				localStorage = window[a[i]];
+				localStorage.setItem(prefix + i, i);
+				localStorage.removeItem(prefix + i);
 				break;
 			}
 			catch (e) {
-				localStorage = a[i++];
+				localStorage = null;
 			}
 		}
 
 		if (!localStorage) {
+
+			var cache = null;
+
 			localStorage = {
 				getItem: function(prop) {
 					prop = prop + '=';
@@ -598,13 +643,17 @@ hello.utils.extend(hello.utils, {
 						}
 					}
 
-					return null;
+					return cache;
 				},
 
 				setItem: function(prop, value) {
+					cache = value;
 					document.cookie = prop + '=' + value;
 				}
 			};
+
+			// Fill the cache up
+			cache = localStorage.getItem('hello');
 		}
 
 		function get() {
@@ -650,7 +699,7 @@ hello.utils.extend(hello.utils, {
 			return json || null;
 		};
 
-	})(window.localStorage),
+	})(),
 
 	// Create and Append new DOM elements
 	// @param node string
@@ -1158,21 +1207,32 @@ hello.utils.extend(hello.utils, {
 
 	// Trigger a clientside popup
 	// This has been augmented to support PhoneGap
-	popup: function(url, redirectUri, windowWidth, windowHeight) {
+	popup: function(url, redirectUri, options) {
 
 		var documentElement = document.documentElement;
 
 		// Multi Screen Popup Positioning (http://stackoverflow.com/a/16861050)
 		// Credit: http://www.xtf.dk/2011/08/center-new-popup-window-even-on.html
 		// Fixes dual-screen position                         Most browsers      Firefox
-		var dualScreenLeft = window.screenLeft !== undefined ? window.screenLeft : screen.left;
-		var dualScreenTop = window.screenTop !== undefined ? window.screenTop : screen.top;
 
-		var width = window.innerWidth || documentElement.clientWidth || screen.width;
-		var height = window.innerHeight || documentElement.clientHeight || screen.height;
+		if (options.height) {
+			var dualScreenTop = window.screenTop !== undefined ? window.screenTop : screen.top;
+			var height = screen.height || window.innerHeight || documentElement.clientHeight;
+			options.top = parseInt((height - options.height) / 2, 10) + dualScreenTop;
+		}
 
-		var left = ((width - windowWidth) / 2) + dualScreenLeft;
-		var top = ((height - windowHeight) / 2) + dualScreenTop;
+		if (options.width) {
+			var dualScreenLeft = window.screenLeft !== undefined ? window.screenLeft : screen.left;
+			var width = screen.width || window.innerWidth || documentElement.clientWidth;
+			options.left = parseInt((width - options.width) / 2, 10) + dualScreenLeft;
+		}
+
+		// Convert options into an array
+		var optionsArray = [];
+		Object.keys(options).forEach(function(name) {
+			var value = options[name];
+			optionsArray.push(name + (value !== null ? '=' + value : ''));
+		});
 
 		// Create a function for reopening the popup, and assigning events to the new popup object
 		// This is a fix whereby triggering the
@@ -1182,7 +1242,7 @@ hello.utils.extend(hello.utils, {
 			var popup = window.open(
 				url,
 				'_blank',
-				'resizeable=true,scrollbars=yes,height=' + windowHeight + ',width=' + windowWidth + ',left=' + left + ',top=' + top
+				optionsArray.join(',')
 			);
 
 			// PhoneGap support
@@ -1294,7 +1354,7 @@ hello.utils.extend(hello.utils, {
 		p = _this.param(location.search);
 
 		// OAuth2 or OAuth1 server response?
-		if (p && ((p.code && p.state) || (p.oauth_token && p.proxy_url))) {
+		if (p && p.state && (p.code || p.oauth_token)) {
 
 			var state = JSON.parse(p.state);
 
@@ -1302,7 +1362,7 @@ hello.utils.extend(hello.utils, {
 			p.redirect_uri = state.redirect_uri || location.href.replace(/[\?\#].*$/, '');
 
 			// Redirect to the host
-			var path = (state.oauth_proxy || p.proxy_url) + '?' + _this.param(p);
+			var path = state.oauth_proxy + '?' + _this.param(p);
 
 			location.assign(path);
 
@@ -1768,7 +1828,7 @@ hello.api = function() {
 	function getPath(url) {
 
 		// Format the string if it needs it
-		url = url.replace(/\@\{([a-z\_\-]+)(\|.+?)?\}/gi, function(m, key, defaults) {
+		url = url.replace(/\@\{([a-z\_\-]+)(\|.*?)?\}/gi, function(m, key, defaults) {
 			var val = defaults ? defaults.replace(/^\|/, '') : '';
 			if (key in p.query) {
 				val = p.query[key];
@@ -2042,7 +2102,7 @@ hello.utils.extend(hello.utils, {
 
 		if (Array.isArray(obj)) {
 			// Clone each item in the array
-			return obj.map(this.clone);
+			return obj.map(this.clone.bind(this));
 		}
 
 		// But does clone everything else.

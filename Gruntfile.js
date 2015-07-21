@@ -25,7 +25,7 @@ module.exports = function(grunt) {
 		mocha_phantomjs: {
 			all: ['tests/specs/index.html']
 		},
-		bumpup: ['package.json', 'bower.json'],
+		bumpup: ['package.json'],
 		shunt: {
 			docs: {
 				'README.md': './index.html'
@@ -34,14 +34,12 @@ module.exports = function(grunt) {
 				'dist/hello.js': [
 					'src/hello.polyfill.js',
 					'src/hello.js',
-					'src/hello.legacy.js',
 					'src/hello.amd.js',
 					'src/hello.commonjs.js'
 				],
 				'dist/hello.all.js': [
 					'src/hello.polyfill.js',
 					'src/hello.js',
-					'src/hello.legacy.js',
 					'src/modules/dropbox.js',
 					'src/modules/facebook.js',
 					'src/modules/flickr.js',
@@ -63,12 +61,25 @@ module.exports = function(grunt) {
 				'dist/hello.all.min.js': 'dist/hello.all.js'
 			}
 		},
+		usebanner: {
+			build: {
+				options: {
+					position: 'top',
+					banner: '/*! <%= pkg.name %> v<%= pkg.version %> | (c) 2012-<%= (new Date()).getFullYear() %> <%= pkg.author.name %> | <%= pkg.license %> <%= pkg.homepage %>/LICENSE */',
+					linebreak: true
+				},
+				files: {
+					src: ['dist/hello.*']
+				}
+			}
+		},
 		watch: {
 			files: ['src/**/*.js'],
 			tasks: ['jscs']
 		}
 	});
 
+	grunt.loadNpmTasks('grunt-banner');
 	grunt.loadNpmTasks('grunt-bumpup');
 	grunt.loadNpmTasks('grunt-contrib-jshint');
 	grunt.loadNpmTasks('grunt-contrib-watch');
@@ -78,6 +89,10 @@ module.exports = function(grunt) {
 
 	grunt.registerTask('mocha', ['mocha_phantomjs']);
 	grunt.registerTask('test', ['jscs', 'jshint', 'mocha']);
-	grunt.registerTask('default', ['test', 'shunt:build', 'shunt:minify']);
+	grunt.registerTask('deploy', ['test', 'shunt:build', 'shunt:minify', 'bumpup', 'updateInitConfig', 'usebanner:build']);
+	grunt.registerTask('default', ['test', 'shunt:build', 'shunt:minify', 'usebanner:build']);
 
+	grunt.registerTask('updateInitConfig', 'Redefine pkg after change in package.json', function() {
+		grunt.config.set('pkg', grunt.file.readJSON('package.json'));
+	});
 };

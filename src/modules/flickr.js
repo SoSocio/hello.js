@@ -24,6 +24,7 @@
 				'me/following': sign('flickr.contacts.getList', {per_page:'@{limit|50}'}),
 				'me/followers': sign('flickr.contacts.getList', {per_page:'@{limit|50}'}),
 				'me/albums': sign('flickr.photosets.getList', {per_page:'@{limit|50}'}),
+				'me/album': sign('flickr.photosets.getPhotos', {photoset_id: '@{id}'}),
 				'me/photos': sign('flickr.people.getPhotos', {per_page:'@{limit|50}'})
 			},
 
@@ -35,8 +36,8 @@
 						if (o.realname) {
 							o.name = o.realname._content;
 							var m = o.name.split(' ');
-							o.first_name = m[0];
-							o.last_name = m[1];
+							o.first_name = m.shift();
+							o.last_name = m.join(' ');
 						}
 
 						o.thumbnail = getBuddyIcon(o, 'l');
@@ -135,7 +136,8 @@
 		return url;
 	}
 
-	function getPhoto(id, farm, server, secret, size) {
+	// See: https://www.flickr.com/services/api/misc.urls.html
+	function createPhotoUrl(id, farm, server, secret, size) {
 		size = (size) ? '_' + size : '';
 		return 'https://farm' + farm + '.staticflickr.com/' + server + '/' + id + '_' + secret + size + '.jpg';
 	}
@@ -162,13 +164,42 @@
 			for (var i = 0; i < o.data.length; i++) {
 				var photo = o.data[i];
 				photo.name = photo.title;
-				photo.picture = getPhoto(photo.id, photo.farm, photo.server, photo.secret, '');
-				photo.source = getPhoto(photo.id, photo.farm, photo.server, photo.secret, 'b');
-				photo.thumbnail = getPhoto(photo.id, photo.farm, photo.server, photo.secret, 'm');
+				photo.picture = createPhotoUrl(photo.id, photo.farm, photo.server, photo.secret, '');
+				photo.pictures = createPictures(photo.id, photo.farm, photo.server, photo.secret);
+				photo.source = createPhotoUrl(photo.id, photo.farm, photo.server, photo.secret, 'b');
+				photo.thumbnail = createPhotoUrl(photo.id, photo.farm, photo.server, photo.secret, 'm');
 			}
 		}
 
 		return o;
+	}
+
+	// See: https://www.flickr.com/services/api/misc.urls.html
+	function createPictures(id, farm, server, secret) {
+
+		var NO_LIMIT = 2048;
+		var sizes = [
+			{id: 't', max: 100},
+			{id: 'm', max: 240},
+			{id: 'n', max: 320},
+			{id: '', max: 500},
+			{id: 'z', max: 640},
+			{id: 'c', max: 800},
+			{id: 'b', max: 1024},
+			{id: 'h', max: 1600},
+			{id: 'k', max: 2048},
+			{id: 'o', max: NO_LIMIT}
+		];
+
+		return sizes.map(function(size) {
+			return {
+				source: createPhotoUrl(id, farm, server, secret, size.id),
+
+				// Note: this is a guess that's almost certain to be wrong (unless square source)
+				width: size.max,
+				height: size.max
+			};
+		});
 	}
 
 	function checkResponse(o, key) {

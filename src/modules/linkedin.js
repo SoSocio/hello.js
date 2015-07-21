@@ -15,10 +15,10 @@
 			refresh: true,
 
 			scope: {
-				basic: 'r_fullprofile',
+				basic: 'r_basicprofile',
 				email: 'r_emailaddress',
-				friends: 'r_network',
-				publish: 'rw_nus'
+				friends: '',
+				publish: 'w_share'
 			},
 			scope_delim: ' ',
 

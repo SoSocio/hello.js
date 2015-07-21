@@ -6,36 +6,43 @@ define([
 
 	describe('hello.login', function() {
 
-		// Create a dummy network
-		before(function() {
+		var testable;
+		var second;
 
-			// Add a default network
-			hello.init({
-				testable: {
-					oauth: {
-						auth: 'https://testdemo/access',
-						grant: 'https://testdemo/grant',
-						version: 2
-					},
-					scope: {
-						basic: 'basic_scope'
-					}
+		// Create a dummy network
+		beforeEach(function() {
+			// Create networks
+			testable = {
+				oauth: {
+					auth: 'https://testdemo/access',
+					grant: 'https://testdemo/grant',
+					version: 2
 				},
-				second: {
-					oauth: {
-						auth: 'https://testdemo/access',
-						version: 2
-					},
-					scope: {
-						common_scope: 'common_scope'
-					}
+				scope: {
+					basic: 'basic_scope'
 				}
+			};
+
+			second = {
+				oauth: {
+					auth: 'https://testdemo/access',
+					version: 2
+				},
+				scope: {
+					common_scope: 'common_scope'
+				}
+			};
+
+			// Add a network
+			hello.init({
+				testable: testable,
+				second: second
 			});
 
 		});
 
 		// Destroy it
-		after(function() {
+		afterEach(function() {
 			delete hello.services.testable;
 		});
 
@@ -193,6 +200,28 @@ define([
 				hello.login('testable', {scope: commonScope});
 			});
 
+			it('should not included empty scopes', function(done) {
+
+				var scope = 'scope';
+				var paddedScope = ',' + scope + ',';
+				delete testable.scope.basic;
+
+				var spy = sinon.spy(function(url, name, optins) {
+
+					url = safariHack(url);
+
+					// Parse parameters
+					var params = hello.utils.param(url.split('?')[1]);
+
+					expect(params.scope).to.eql(scope);
+					done();
+				});
+
+				window.open = spy;
+
+				hello.login('testable', {scope: paddedScope});
+			});
+
 			it('should use the correct and unencoded delimiter to separate scope', function(done) {
 
 				var basicScope = 'read_user,read_bikes';
@@ -263,9 +292,107 @@ define([
 
 				hello.login('testable', opts);
 			});
-
 		});
 
+		describe('popup options', function() {
+
+			it('should give the popup the default options', function(done) {
+
+				var spy = sinon.spy(function(url, name, options) {
+					expect(options).to.contain('resizable=1');
+					expect(options).to.contain('scrollbars=1');
+					expect(options).to.contain('width=500');
+					expect(options).to.contain('height=550');
+					expect(options).to.contain('top');
+					expect(options).to.contain('left');
+					done();
+				});
+
+				window.open = spy;
+
+				hello.login('testable');
+			});
+
+			it('should allow the popup options to be overridden', function(done) {
+
+				var spy = sinon.spy(function(url, name, options) {
+					expect(options).to.contain('location=no');
+					expect(options).to.contain('toolbar=no');
+					expect(options).to.contain('hidden=true');
+					done();
+				});
+
+				window.open = spy;
+
+				hello.login('testable', {
+					popup: {
+						hidden: true,
+						location: 'no',
+						toolbar: 'no'
+					}
+				});
+			});
+		});
+
+		describe('option.force = false', function() {
+
+			var _store = hello.utils.store;
+			var session = null;
+
+			beforeEach(function() {
+
+				session = {
+					access_token: 'token',
+					expires: ((new Date()).getTime() / 1e3) + 1000,
+					scope: 'basic'
+				};
+
+				hello.utils.store = function() {
+					return session;
+				};
+			});
+
+			afterEach(function() {
+
+				hello.utils.store = _store;
+			});
+
+			it('should not trigger the popup if there is a valid session', function(done) {
+
+				var spy = sinon.spy(done.bind(null, new Error('window.open should not be called')));
+				window.open = spy;
+
+				hello('testable').login({force: false}).then(function(r) {
+					expect(spy.notCalled).to.be.ok();
+					expect(r.authResponse).to.eql(session);
+					done();
+				});
+			});
+
+			it('should trigger the popup if the token has expired', function(done) {
+
+				var spy = sinon.spy(function() {
+					done();
+				});
+
+				window.open = spy;
+
+				session.expires = ((new Date()).getTime() / 1e3) - 1000;
+
+				hello('testable').login({force: false});
+			});
+
+			it('should trigger the popup if the scopes have changed', function(done) {
+
+				var spy = sinon.spy(function() {
+					done();
+				});
+
+				window.open = spy;
+
+				hello('testable').login({force: false, scope: 'not-basic'});
+			});
+		});
 	});
 
 });

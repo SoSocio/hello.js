@@ -336,11 +336,19 @@ If a network string is provided: A consent window to authenticate with that netw
 				</tr>
 				<tr>
 					<td>force</td>
-					<td><i>Boolean</i></td>
-					<td><i>true</i> or <i>false</i></td>
-					<td>Always initiate auth flow, despite current valid token.</td>
+					<td><i>Boolean</i> or <i>null</i></td>
+					<td><i>true</i>, <i>false</i> or <i>null</i></td>
+					<td>(true) initiate auth flow and prompt for reauthentication where available. (null) initiate auth flow. (false) only prompt auth flow if the scopes have changed or the token expired.</td>
 					<td><em>optional</em></td>
-					<td><i>true</i></td>
+					<td><i>null</i></td>
+				</tr>
+				<tr>
+					<td>popup</td>
+					<td><i>object</i></td>
+					<td>{resizable:1}</td>
+					<td>Overrides the <a href="http://www.w3schools.com/jsref/met_win_open.asp">popups specs</a></td>
+					<td><em>optional</em></td>
+					<td>See <code>hello.settings.popup</code></td>
 				</tr>
 			</table>
 		</td>
@@ -589,6 +597,8 @@ hello('facebook').api('me').then(function(json) {
 ```
 
 # Event Subscription
+
+Please see [demo of the global events](demos/events.html).
 
 ## hello.on()
 
@@ -877,6 +887,14 @@ sudo npm install -g grunt-cli
 
 # Run the tests
 grunt test
+
+# Run the tests in the browser...
+
+# 1. In project root create local web server e.g.
+python -m SimpleHTTPServer
+
+# 2. Then open the following URL in your web browser:
+# http://localhost:8000/tests/specs/index.html
 ```
 
 

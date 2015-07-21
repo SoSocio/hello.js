@@ -17,6 +17,7 @@
 			scope: {
 				basic: 'public_profile',
 				email: 'email',
+				share: 'user_posts',
 				birthday: 'user_birthday',
 				events: 'user_events',
 				photos: 'user_photos',
@@ -36,14 +37,21 @@
 			refresh: true,
 
 			login: function(p) {
+
+				// Reauthenticate
+				// https://developers.facebook.com/docs/facebook-login/reauthentication
+				if (p.options.force) {
+					p.qs.auth_type = 'reauthenticate';
+				}
+
 				// Support Facebook's unique auth_type parameter
 				if (p.options.auth_type) {
 					p.qs.auth_type = p.options.auth_type;
 				}
 
 				// The facebook login window is a different size.
-				p.options.window_width = 580;
-				p.options.window_height = 400;
+				p.options.popup.width = 580;
+				p.options.popup.height = 400;
 			},
 
 			logout: function(callback) {
@@ -101,6 +109,7 @@
 				'me/following': formatFriends,
 				'me/followers': formatFriends,
 				'me/albums': format,
+				'me/photos': format,
 				'me/files': format,
 				'me/like': formatFriends,
 				'default': format
@@ -170,9 +179,15 @@
 		if (o && 'data' in o) {
 			var token = req.query.access_token;
 			o.data.forEach(function(d) {
+
 				if (d.picture) {
 					d.thumbnail = d.picture;
 				}
+
+				d.pictures = (d.images || [])
+					.sort(function(a, b) {
+						return a.width - b.width;
+					});
 
 				if (d.cover_photo) {
 					d.thumbnail = base + d.cover_photo + '/picture?access_token=' + token;
