@@ -26,13 +26,11 @@
 			// ...otherwise I'd love to use OAuth2
 
 			// Follow request https://forums.dropbox.com/topic.php?id=106505
-
-			p.qs.response_type = 'code';
 			oauth: {
 				version: 2,
 				auth: 'https://www.dropbox.com/1/oauth2/authorize',
 				grant: 'https://api.dropbox.com/1/oauth2/token'
-			}
+			},
 			
 			// API Base URL
 			base: 'https://api.dropbox.com/1/',
@@ -46,9 +44,9 @@
 				me: req('account/info'),
 
 				// Https://www.dropbox.com/developers/core/docs#metadata
-				'me/files': req('metadata/auto/@{parent|}'),
-				'me/folder': req('metadata/auto/@{id}'),
-				'me/folders': req('metadata/auto/'),
+				'me/files': req('metadata/@{parent|}'),
+				'me/folder': req('metadata/dropbox/@{id}'),
+				'me/folders': req('metadata/'),
 
 				'default': function(p, callback) {
 					if (p.path.match('https://api-content.dropbox.com/1/files/')) {
@@ -75,7 +73,7 @@
 						p.data.file = hello.utils.toBlob(p.data.file);
 					}
 
-					callback('https://api-content.dropbox.com/1/files_put/auto/' + path + '/' + fileName);
+					callback('https://api-content.dropbox.com/1/files_put/' + path + '/' + fileName);
 				},
 
 				'me/folders': function(p, callback) {
@@ -187,11 +185,10 @@
 			return;
 		}
 
-		var path = (o.root !== 'app_folder' ? o.root : '') + o.path.replace(/\&/g, '%26');
+		var path = (o.root !== 'dropbox' ? o.root : '') + o.path.replace(/\&/g, '%26');
 		path = path.replace(/^\//, '');
 		if (o.thumb_exists) {
-			o.thumbnail = req.oauth_proxy + '?path=' +
-			encodeURIComponent('https://api-content.dropbox.com/1/thumbnails/auto/' + path + '?format=jpeg&size=m') + '&access_token=' + req.options.access_token;
+			o.thumbnail = 'https://api-content.dropbox.com/1/thumbnails/auto/' + encodeURIComponent(path) + '?format=jpeg&size=m' + '&access_token=' + req.options.access_token;
 		}
 
 		o.type = (o.is_dir ? 'folder' : o.mime_type);
@@ -200,9 +197,8 @@
 			o.files = path.replace(/^\//, '');
 		}
 		else {
-			o.downloadLink = hello.settings.oauth_proxy + '?path=' +
-			encodeURIComponent('https://api-content.dropbox.com/1/files/auto/' + path) + '&access_token=' + req.options.access_token;
-			o.file = 'https://api-content.dropbox.com/1/files/auto/' + path;
+			o.downloadLink = 'https://api-content.dropbox.com/1/files/auto/' + encodeURIComponent(path) + '?access_token=' + req.options.access_token;
+			o.file = 'https://api-content.dropbox.com/1/thumbnails/auto/' + encodeURIComponent(path) + '?format=jpeg&size=xl' + '&access_token=' + req.options.access_token;
 		}
 
 		if (!o.id) {
