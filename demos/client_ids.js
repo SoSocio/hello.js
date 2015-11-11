@@ -8,17 +8,14 @@ var location_https = window.location.href.indexOf('https://') === 0;
 
 // Register your domain with Facebook at  and add here
 var FACEBOOK_CLIENT_ID = {
-	'adodson.com' : '160981280706879',
 	'local.knarly.com' : '285836944766385',
-	'mrswitch.github.com' : '304672569582045'
-}[window.location.hostname];
+}[window.location.hostname] || '160981280706879';
+
 
 // Register your domain with Windows Live at http://manage.dev.live.com and add here
 var WINDOWS_CLIENT_ID = {
-	'adodson.com' : '00000000400D8578',
-	'mrswitch.github.com' : '0000000044088105',
 	'local.knarly.com' : '000000004405FD31'
-}[window.location.hostname];
+}[window.location.hostname] || '00000000400D8578';
 
 
 // Google Register --  https://console.developers.google.com
@@ -43,9 +40,8 @@ var YAHOO_CLIENT_ID = {
 }[window.location.hostname];
 
 var TWITTER_CLIENT_ID = {
-	'local.knarly.com' : 'krGNvpEVVBE27jcemC6uA',
-	'adodson.com' : 'eQuyZuECKWPiv3D7E4qdg'
-}[window.location.hostname];
+	'local.knarly.com' : 'krGNvpEVVBE27jcemC6uA'
+}[window.location.hostname] || 'eQuyZuECKWPiv3D7E4qdg';
 
 
 // SoundCloud Register - http://soundcloud.com/you/apps/
@@ -78,8 +74,24 @@ var FLICKR_CLIENT_ID = {
 	'adodson.com' : '8d7cfb86e6d6bfab49579c3bfdb95796'
 }[window.location.hostname];
 
+var VK_CLIENT_ID = {
+	'local.knarly.com' : '5001721',
+	'adodson.com' : '5001721'
+}[window.location.hostname];
+
+
+var TUMBLR_CLIENT_ID = {
+	'local.knarly.com' : '1odTR4hLo2oAoPlIoGN8O60d1tUw0CsZGdysFFPikX7APlcXlN',
+	'adodson.com' : 'BHKkYCvKt33lL34iM1yWUhkYRw1lqwifbKKTfgh5FAX5uBzzxn'
+}[window.location.hostname];
+
+
 // join.me Register - https://developer.join.me
-var JOINME_CLIENT_ID = 'myenm7aw34dbgejhuw4sv8zz';
+var JOINME_CLIENT_ID = {
+	'adodson.com': (location_https ? 'hnvbrvsb63gt3fwa2c7nmhfc' : 'myenm7aw34dbgejhuw4sv8zz'),
+	'local.knarly.com': 'e7jmevgbve6uzqvsttf7pb85'
+}[window.location.hostname];
+
 
 // To make it a little easier
 var CLIENT_IDS_ALL = {
@@ -90,6 +102,7 @@ var CLIENT_IDS_ALL = {
 	twitter : TWITTER_CLIENT_ID,
 	yahoo : YAHOO_CLIENT_ID,
 	instagram : INSTAGRAM_CLIENT_ID,
+	joinme: JOINME_CLIENT_ID,
 	linkedin : LINKEDIN_CLIENT_ID,
 	soundcloud : SOUNDCLOUD_CLIENT_ID,
 	foursquare : FOURSQUARE_CLIENT_ID,
@@ -98,15 +111,6 @@ var CLIENT_IDS_ALL = {
 	vk: VK_CLIENT_ID
 };
 
-var TUMBLR_CLIENT_ID = {
-	'local.knarly.com' : '1odTR4hLo2oAoPlIoGN8O60d1tUw0CsZGdysFFPikX7APlcXlN',
-	'adodson.com' : 'BHKkYCvKt33lL34iM1yWUhkYRw1lqwifbKKTfgh5FAX5uBzzxn'
-}[window.location.hostname];
-
-var VK_CLIENT_ID = {
-	'local.knarly.com' : '5001721',
-	'adodson.com' : '5001721'
-}[window.location.hostname];
 
 //
 // OAUTH PROXY
@@ -114,3 +118,13 @@ var VK_CLIENT_ID = {
 var OAUTH_PROXY_URL = {
 	'local.knarly.com' : 'http://local.knarly.com:5500/proxy'
 }[window.location.hostname] || 'https://auth-server.herokuapp.com/proxy';
+
+
+
+//
+// Redirect URI
+//
+var REDIRECT_URI = '/hello.js/redirect.html';
+if (typeof chrome === 'object' && typeof chrome.identity === 'object' && chrome.identity.launchWebAuthFlow) {
+	REDIRECT_URI = 'https://'+window.location.hostname+'.chromiumapp.org/redirect.html';
+}

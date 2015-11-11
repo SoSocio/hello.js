@@ -179,11 +179,6 @@ bower install hello
 <p>Register your application with at least one of the following networks. Ensure you register the correct domain as they can be quite picky.</p>
 
 <ul>
-<!--
-<li><a target="_blank" href="http://msdn.microsoft.com/en-us/library/hh243641.aspx">Windows Live</a></li>
-<li><a target="_blank" href="http://code.google.com/apis/accounts/docs/OAuth2UserAgent.html">Google+</a></li>
-<li><a target="_blank" href="http://developers.facebook.com/docs/reference/dialogs/oauth/">Facebook</a></li>
--->
 <li><a target="_blank" href="https://developers.facebook.com/apps">Facebook</a></li>
 <li><a target="_blank" href="https://account.live.com/developers/applications/index">Windows Live</a></li>
 <li><a target="_blank" href="https://code.google.com/apis/console/b/0/#:access">Google+</a></li>
@@ -546,6 +541,8 @@ alert((online(fb) ? 'Signed' : 'Not signed') + ' into Facebook, ' + (online(wl) 
 
 <h3>hello.api([path], [method], [data], [callback(json)])</h3>
 
+<p><code>hello.api([path], [method], [data], [callback(json)]).then(successHandler, errorHandler)</code>.</p>
+
 <table>
 	<tr>
 		<th>name</th>
@@ -622,8 +619,45 @@ alert((online(fb) ? 'Signed' : 'Not signed') + ' into Facebook, ' + (online(wl) 
 			<em>null</em>
 		</td>
 	</tr>
-</table>
 
+	<tr>
+		<td colspan=6>More options (below) require putting the options into a 'key'=>'value' hash. I.e. <code>hello(network).api(options)</code></td>
+	</tr>
+
+	<tr>
+		<td>timeout</td>
+		<td><i>integer</i></td>
+		<td>
+			<code>3000</code> = 3 seconds.
+		</td>
+		<td>
+			Wait <em>milliseconds</em> before resolving the Promise with a reject.
+		</td>
+		<td>
+			<em>optional</em>
+		</td>
+		<td>
+			<em>60000</em>
+		</td>
+	</tr>
+
+	<tr>
+		<td>formatResponse</td>
+		<td><i>boolean</i></td>
+		<td>
+			<code>false</code>
+		</td>
+		<td>
+			<code>true</code>: format the response, <code>false</code>: return raw response.
+		</td>
+		<td>
+			<em>optional</em>
+		</td>
+		<td>
+			<em>true</em>
+		</td>
+	</tr>
+</table>
 
 <h3>Examples:</h3>
 
@@ -905,13 +939,23 @@ google.login({force: false}).then(function() {
 
 <p>HelloJS can also be run on PhoneGap applications. Checkout the demo <a href="https://github.com/MrSwitch/hellojs-phonegap-demo">hellojs-phonegap-demo</a></p>
 
-<h2>Contributing</h2>
+<h1>Thankyou</h1>
 
-<p><b>"No, it's perfect!"</b>.... If you believe that then give it a <a href="https://github.com/MrSwitch/hello.js">star</a>.</p>
+<p>HelloJS relies on the these fantastic services for its development and deployment. Without which it would still be kicking around in a cave - not evolving very fast.</p>
 
-<p>Having read this far you have already invested your time, why not contribute!?</p>
+<ul>
+<li><a href="https://www.browserstack.com/">BrowserStack</a> for providing a means to test across multiple devices.
+<li><a href="https://github.com">Github</a> for maintaining the repo and issue tracking.
+<li><a href="https://travis-ci.org/">Travis</a> for providing fantastic continuous integration.
+<li>... and others i've forgotten to mention
+</ul>
 
-<p>HelloJS is constantly evolving, as are the services which it connects too. So if you think something could be said better, find something buggy or missing from either the code, documentation or demos then please put it in, no matter how trivial.</p>
+<h2>Can i contribute?</h2>
+
+<p>Yes, yes you can. Infact this isnt really free software, it comes with bugs documentation errors, more over it tracks thirdparty API's which just wont sit still. And its intended for everyone to understand, so if you dont understand something then its not fulfilling its goal.</p>
+
+<p>... otherwise give it a <a href="https://github.com/MrSwitch/hello.js">star</a>.</p>
+
 
 <h3>Changing Code?</h3>
 <p>Ensure you setup and test your code on a variety of browsers.</p>
@@ -935,6 +979,7 @@ python -m SimpleHTTPServer
 # 2. Then open the following URL in your web browser:
 # http://localhost:8000/tests/specs/index.html
 </pre>
+
 
 <!--NO-MARKDOWN-->
 
