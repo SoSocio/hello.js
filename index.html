@@ -352,7 +352,7 @@ hello.init({
 				<tr>
 					<td>redirect_uri</td>
 					<td><i>string</i></td>
-					<td><q><a href="redirect.html" target="_blank">redirect.html</a></q></td>
+					<td><q><a href="#redirect-page">Redirect Page</a></q></td>
 					<td>
 					A full or relative URI of a page which includes this script file hello.js</td>
 					<td>
@@ -559,7 +559,7 @@ alert((online(fb) ? 'Signed' : 'Not signed') + ' into Facebook, ' + (online(wl) 
 			<q>/me</q>,
 			<q>/me/friends</q>
 		</td>
-		<td>Path or URI of the resource. See <a href="#REST API">REST API</a>, Can be prefixed with the name of the service.</td>
+		<td>A relative path to the modules <code>base</code> URI, a full URI or a mapped path defined by the module - see <a href="https://adodson.com/hello.js#REST API">REST API</a>.</td>
 		<td>
 			<em>required</em>
 		</td>
@@ -692,6 +692,10 @@ hello('facebook').api('me').then(function(json) {
 			<td>Triggered whenever session changes</td>
 		</tr>
 		<tr>
+			<td>auth.init</td>
+			<td>Triggered prior to requesting an authentication flow</td>
+		</tr>
+		<tr>
 			<td>auth.login</td>
 			<td>Triggered whenever a user logs in</td>
 		</tr>
@@ -725,7 +729,7 @@ hello.on('auth.login', sessionStart);
 hello.off('auth.login', sessionStart);
 </pre>
 
-<h1>Misc</h1>
+<h1>Concepts</h1>
 
 <h2>Pagination, Limit and Next Page</h2>
 <p>Responses which are a subset of the total results should provide a <code>response.paging.next</code> property. This can be plugged back into <code>hello.api</code> in order to get the next page of results.</p>
@@ -763,48 +767,50 @@ paginationExample('me/friends');
 <p>An app can specify multiple scopes, separated by commas - as in the example below.</p>
 
 <pre class="tryit" type="js">
-hello('facebook').login({scope: 'friends,photos,publish'});
+hello('facebook').login({
+    scope: 'friends, photos, publish'
+});
 </pre>
 
-<p>Scopes are tightly coupled with API requests, which will break if the session scope is missing or invalid. The best way to see this is next to the API paths in the <a href="http://adodson.com/hello.js/#helloapi">hello.api reference table</a>.</p>
+<p>Scopes are tightly coupled with API requests. Unauthorized error response from an endpoint will occur if the scope privileges have not been granted. Use the <a href="http://adodson.com/hello.js/#helloapi">hello.api reference table</a> to explore the API and scopes.</p>
 
-<p>The table below illustrates some of the default scopes HelloJS exposes. Additional scopes may be added which are proprietary to a service, but be careful not to mix proprietary scopes with other services which don't know how to handle them.</p>
-<table>
-	<thead>
-	<tr>
-		<th>Scope</th>
-		<th>Description</th>
-	</tr>
-	</thead>
-	<tbody>
-		<tr>
-			<th><i>default</i></th>
-			<td>Read basic profile</td>
-		</tr>
-		<tr>
-			<th><q>friends</q></th>
-			<td>Read friends profiles</td>
-		</tr>
-		<tr>
-			<th><q>photos</q></th>
-			<td>Read users albums and photos</td>
-		</tr>
-		<tr>
-			<th><q>files</q></th>
-			<td>Read users files</td>
-		</tr>
-		<tr>
-			<th><q>publish</q></th>
-			<td>Publish status updates</td>
-		</tr>
-		<tr>
-			<th><q>publish_files</q></th>
-			<td>Publish photos and files</td>
-		</tr>
-	</tbody>
-</table>
+<p>It's considered good practice to limit the use of scopes. The more unnessary privileges you ask for the more likely users are going to drop off. If your app has many different sections, consider re-authorizing the user with different privileges as they go.</p>
 
-<p>It's good practice to limit the use of scopes and also to make users aware of why your app needs certain privileges. Try to update the permissions as a user delves further into your app. For example: If the user would like to share a link with a friend, include a button that the user has to click to trigger the hello.login with the 'friends' scope, and then the handler triggers the API call after authorization.</p>
+<p>HelloJS modules standardises popular scope names. However you can always use proprietary scopes, e.g. to access google spreadsheets: <code>hello('google').login({scope: 'https://spreadsheets.google.com/feeds'});</code></p>
+
+<div data-bind="template: { name: 'tests-template', data: { test: $root, filter:'scope' } }">See <a href="http://adodson.com/hello.js/#scope">Scope</a> for standardised scopes.
+</div>
+
+<h2>Redirect Page</h2>
+<p>Providers of the OAuth1/2 authorization flow must respect a Redirect URI parameter in the authorization request (also known as a Callback URL). E.g. <code>...&amp;redirect_uri=http://mydomain.com/redirect.html&amp;...</code>
+
+<p>The <code>redirect_uri</code> is always a full URL. It must point to a Redirect document which will process the authorization response and set user session data. In order for an application to communicate with this document and set the session data, the origin of the document must match that of the application - this restriction is known as the same-origin security policy.</p>
+
+<p>A successful authorisation response will append the user credentials to the Redirect URI. e.g. <code> ?access_token=12312&amp;expires_in=3600</code>. The Redirect document is responsible for interpreting the request and setting the session data.</p>
+
+<h3>Create a Redirect Page and URI</h3>
+
+<p>In HelloJS the default value of <code>redirect_uri</code> is the current page. However its recommended that you explicitly set the <code>redirect_uri</code> to a dedicated page with minimal UI and page weight.
+
+<p>Create an HTML page on your site with an instance of HelloJS e.g...</p>
+
+<pre type="html">
+&lt;script src="./hello.js"&gt;&lt;/script&gt;
+</pre>
+
+<p>Do add css animations incase there is a wait. <b>View Source</b> on <a href="./redirect.html">./redirect.html</a> for an example.</p>
+
+<p>Then within your application script where you initiate HelloJS, define the Redirect URI to point to this page. e.g.
+
+<pre type="js">
+hello.init({
+	facebook:client_id
+}, {
+	redirect_uri: '/redirect.html'
+});
+</pre>
+
+<p>Please note: The <code>redirect_uri</code> example above in <code>hello.init</code> is relative, it will be turned into an absolute path by HelloJS before being used.</p>
 
 <h2>Error Handling</h2>
 
@@ -939,20 +945,39 @@ google.login({force: false}).then(function() {
 
 <p>HelloJS can also be run on PhoneGap applications. Checkout the demo <a href="https://github.com/MrSwitch/hellojs-phonegap-demo">hellojs-phonegap-demo</a></p>
 
-<h1>Thankyou</h1>
+<h2>Chrome Apps</h2>
 
-<p>HelloJS relies on the these fantastic services for its development and deployment. Without which it would still be kicking around in a cave - not evolving very fast.</p>
+<b>Demo</b> <a href="https://github.com/MrSwitch/hellojs-chromeapp-demo">hellojs-chromeapp-demo</a>
+
+<p>HelloJS module <a href="./src/hello.chromeapp.js">src/hello.chromeapp.js</a> (also bundled in dist/*) shims the library to support the unique API's of the Chrome App environment (or Chrome Extension).</p>
+
+
+<h3>Chrome manifest.json prerequisites</h3>
+
+<p>The <code>manifest.json</code> file must have the following permissions...</p>
+<pre type="json">
+...
+"permissions": [
+    "identity",
+    "storage",
+    "https://*/"],
+...
+</pre>
+
+<h1>Thank you</h1>
+
+<p>HelloJS relies on these fantastic services for it's development and deployment, without which it would still be kicking around in a cave - not evolving very fast.</p>
 
 <ul>
 <li><a href="https://www.browserstack.com/">BrowserStack</a> for providing a means to test across multiple devices.
 <li><a href="https://github.com">Github</a> for maintaining the repo and issue tracking.
 <li><a href="https://travis-ci.org/">Travis</a> for providing fantastic continuous integration.
-<li>... and others i've forgotten to mention
+<li>... and others I've forgotten to mention
 </ul>
 
-<h2>Can i contribute?</h2>
+<h2>Can I contribute?</h2>
 
-<p>Yes, yes you can. Infact this isnt really free software, it comes with bugs documentation errors, more over it tracks thirdparty API's which just wont sit still. And its intended for everyone to understand, so if you dont understand something then its not fulfilling its goal.</p>
+<p>Yes, yes you can. In fact this isn't really free software, it comes with bugs and documentation errors. Moreover it tracks third party API's which just won't sit still. And it's intended for everyone to understand, so if you dont understand something then it's not fulfilling it's goal.</p>
 
 <p>... otherwise give it a <a href="https://github.com/MrSwitch/hello.js">star</a>.</p>
 
