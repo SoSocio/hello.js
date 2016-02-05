@@ -79,7 +79,7 @@
 				'me/share': 'me/feed',
 				'me/like': 'me/likes',
 				'me/files': 'me/albums',
-				'me/albums': 'me/albums?fields=cover_photo,name',
+				'me/albums': 'me/albums?fields=cover_photo,name,count',
 				'me/album': '@{id}/photos?fields=picture',
 				'me/photos': 'me/photos',
 				'me/photo': '@{id}',
