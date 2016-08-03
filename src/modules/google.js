@@ -27,6 +27,7 @@
 				files: 'https://www.googleapis.com/auth/drive.readonly',
 				publish: '',
 				publish_files: 'https://www.googleapis.com/auth/drive',
+				share: '',
 				create_event: '',
 				offline_access: ''
 			},
@@ -34,10 +35,6 @@
 			scope_delim: ' ',
 
 			login: function(p) {
-				if (p.qs.display === 'none') {
-					// Google doesn't like display=none
-					p.qs.display = '';
-				}
 
 				if (p.qs.response_type === 'code') {
 

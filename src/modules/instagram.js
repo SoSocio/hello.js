@@ -20,16 +20,16 @@
 				basic: 'basic',
 				photos: '',
 				friends: 'relationships',
-				publish: 'likes comments'
+				publish: 'likes comments',
+				email: '',
+				share: '',
+				publish_files: '',
+				files: '',
+				videos: '',
+				offline_access: ''
 			},
 
 			scope_delim: ' ',
-
-			login: function(p) {
-				// Instagram throws errors like 'JavaScript API is unsupported' if the display is 'popup'.
-				// Make the display anything but 'popup'
-				p.qs.display = '';
-			},
 
 			base: 'https://api.instagram.com/v1/',
 

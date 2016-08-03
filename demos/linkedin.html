@@ -16,7 +16,7 @@
 <script class="pre">
 hello.on('auth.login', function(r){
 	// Get Profile
-	hello.api(r.network+':/me', function(p){
+	hello(r.network).api('me').then(function(p){
 		document.getElementById('login').innerHTML = "<img src='"+ p.thumbnail + "' width=24/>Connected to "+ r.network+" as " + p.name;
 	});
 });

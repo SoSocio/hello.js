@@ -27,9 +27,6 @@ module.exports = function(grunt) {
 		},
 		bumpup: ['package.json'],
 		shunt: {
-			docs: {
-				'README.md': './index.html'
-			},
 			build: {
 				'dist/hello.js': [
 					'src/hello.polyfill.js',
@@ -43,6 +40,7 @@ module.exports = function(grunt) {
 					'src/hello.polyfill.js',
 					'src/hello.js',
 					'src/hello.chromeapp.js',
+					'src/hello.phonegap.js',
 					'src/modules/dropbox.js',
 					'src/modules/facebook.js',
 					'src/modules/flickr.js',
