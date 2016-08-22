@@ -25,7 +25,6 @@
 			login: function(p) {
 				// OAuth2 non-standard adjustments
 				p.qs.scope = '';
-				delete p.qs.display;
 
 				// Should this be run as OAuth1?
 				// If the redirect_uri is is HTTP (non-secure) then its required to revert to the OAuth1 endpoints
@@ -72,7 +71,7 @@
 				// Https://www.dropbox.com/developers/core/docs#metadata
 				'me/files': req('metadata/@{parent|}'),
 				'me/folder': req('metadata/dropbox/@{id}'),
-				'me/folders': req('metadata/'),
+				'me/folders': req('metadata/dropbox'),
 
 				'default': function(p, callback) {
 					if (p.path.match('https://api-content.dropbox.com/1/files/')) {

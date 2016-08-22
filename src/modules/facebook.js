@@ -30,7 +30,7 @@
 				// Deprecated in v2.0
 				// Create_event	: 'create_event',
 
-				offline_access: 'offline_access'
+				offline_access: ''
 			},
 
 			// Refresh the access_token
@@ -43,10 +43,6 @@
 				if (p.options.force) {
 					p.qs.auth_type = 'reauthenticate';
 				}
-
-				// The facebook login window is a different size.
-				p.options.popup.width = 580;
-				p.options.popup.height = 400;
 			},
 
 			logout: function(callback, options) {
@@ -79,7 +75,7 @@
 				'me/share': 'me/feed',
 				'me/like': 'me/likes',
 				'me/files': 'me/albums',
-				'me/albums': 'me/albums?fields=cover_photo,name',
+				'me/albums': 'me/albums?fields=cover_photo,name,count',
 				'me/album': '@{id}/photos?fields=picture',
 				'me/photos': 'me/photos',
 				'me/photo': '@{id}',

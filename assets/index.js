@@ -758,7 +758,11 @@ var tests = [
 // BEFORE SETUPS
 
 function scopeFilter(test) {
-	return hello.services[test.network].scope[test.method];
+	var scope = hello.services[test.network].scope;
+
+	if (scope) {
+		return scope[test.method];
+	}
 }
 
 
@@ -1070,7 +1074,11 @@ function Provider(network){
 		});
 	};
 	this.login = function(){
-		hello.login(network, {scope: model.checkedScopes() });
+		hello.login(network, {scope: model.checkedScopes() }).then(function() {
+			console.log('Logged in to ' + network);
+		}, function(e) {
+			console.error('Failed to login to ' + network, e);
+		});
 	};
 	this.logout = function(){
 		this.online(false);
@@ -1089,6 +1097,9 @@ self.model = new (function(){
 		});
 	};
 	this.scopes = ko.observableArray([]);
+	this.hasConnected = ko.computed(function() {
+		return ko.utils.arrayFilter(this.networks(), function(item) {return item.online();}).length > 0
+	}, this);
 });
 
 ko.utils.arrayForEach( tests, function(test){
