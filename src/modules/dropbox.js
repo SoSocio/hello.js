@@ -21,9 +21,7 @@
 		dropbox: {
 
 			name: 'Dropbox',
-
 			oauth: OAuth2Settings,
-
 			login: function(p) {
 				// OAuth2 non-standard adjustments
 				p.qs.scope = '';
@@ -44,37 +42,36 @@
 				// The dropbox login window is a different size
 				p.options.popup.width = 1000;
 				p.options.popup.height = 1000;
+				
+				// Dropbox oauth2 doesn't like display parameter
+				delete p.qs.display;
 			},
 
-			/*
-				Dropbox does not allow insecure HTTP URI's in the redirect_uri field
-				...otherwise I'd love to use OAuth2
+			// Dropbox does not allow insecure HTTP URI's in the redirect_uri field
+			// ...otherwise I'd love to use OAuth2
 
-				Follow request https://forums.dropbox.com/topic.php?id=106505
-
-				p.qs.response_type = 'code';
-				oauth: {
-					version: 2,
-					auth: 'https://www.dropbox.com/1/oauth2/authorize',
-					grant: 'https://api.dropbox.com/1/oauth2/token'
-				}
-			*/
-
+			// Follow request https://forums.dropbox.com/topic.php?id=106505
+			oauth: {
+				version: 2,
+				auth: 'https://www.dropbox.com/1/oauth2/authorize',
+				grant: 'https://api.dropbox.com/1/oauth2/token'
+			},
+			
 			// API Base URL
 			base: 'https://api.dropbox.com/1/',
 
 			// Bespoke setting: this is states whether to use the custom environment of Dropbox or to use their own environment
 			// Because it's notoriously difficult for Dropbox too provide access from other webservices, this defaults to Sandbox
-			root: 'sandbox',
+			root: 'dropbox',
 
 			// Map GET requests
 			get: {
-				me: 'account/info',
+				me: req('account/info'),
 
 				// Https://www.dropbox.com/developers/core/docs#metadata
-				'me/files': req('metadata/auto/@{parent|}'),
-				'me/folder': req('metadata/auto/@{id}'),
-				'me/folders': req('metadata/auto/'),
+				'me/files': req('metadata/@{parent|}'),
+				'me/folder': req('metadata/dropbox/@{id}'),
+				'me/folders': req('metadata/dropbox'),
 
 				'default': function(p, callback) {
 					if (p.path.match('https://api-content.dropbox.com/1/files/')) {
@@ -101,7 +98,7 @@
 						p.data.file = hello.utils.toBlob(p.data.file);
 					}
 
-					callback('https://api-content.dropbox.com/1/files_put/auto/' + path + '/' + fileName);
+					callback('https://api-content.dropbox.com/1/files_put/' + path + '/' + fileName);
 				},
 
 				'me/folders': function(p, callback) {
@@ -109,7 +106,7 @@
 					var name = p.data.name;
 					p.data = {};
 
-					callback('fileops/create_folder?root=@{root|sandbox}&' + hello.utils.param({
+					callback('fileops/create_folder?root=@{root|dropbox}&' + hello.utils.param({
 						path: name
 					}));
 				}
@@ -117,8 +114,8 @@
 
 			// Map DELETE requests
 			del: {
-				'me/files': 'fileops/delete?root=@{root|sandbox}&path=@{id}',
-				'me/folder': 'fileops/delete?root=@{root|sandbox}&path=@{id}'
+				'me/files': 'fileops/delete?root=@{root|dropbox}&path=@{id}',
+				'me/folder': 'fileops/delete?root=@{root|dropbox}&path=@{id}'
 			},
 
 			wrap: {
@@ -213,11 +210,10 @@
 			return;
 		}
 
-		var path = (o.root !== 'app_folder' ? o.root : '') + o.path.replace(/\&/g, '%26');
+		var path = (o.root !== 'dropbox' ? o.root : '') + o.path.replace(/\&/g, '%26');
 		path = path.replace(/^\//, '');
 		if (o.thumb_exists) {
-			o.thumbnail = req.oauth_proxy + '?path=' +
-			encodeURIComponent('https://api-content.dropbox.com/1/thumbnails/auto/' + path + '?format=jpeg&size=m') + '&access_token=' + req.options.access_token;
+			o.thumbnail = 'https://content.dropboxapi.com/1/thumbnails/auto/' + encodeURIComponent(path) + '?format=jpeg&size=m' + '&access_token=' + req.options.access_token;
 		}
 
 		o.type = (o.is_dir ? 'folder' : o.mime_type);
@@ -226,9 +222,8 @@
 			o.files = path.replace(/^\//, '');
 		}
 		else {
-			o.downloadLink = hello.settings.oauth_proxy + '?path=' +
-			encodeURIComponent('https://api-content.dropbox.com/1/files/auto/' + path) + '&access_token=' + req.options.access_token;
-			o.file = 'https://api-content.dropbox.com/1/files/auto/' + path;
+			o.downloadLink = 'https://api-content.dropbox.com/1/files/auto/' + encodeURIComponent(path) + '?access_token=' + req.options.access_token;
+			o.file = 'https://api-content.dropbox.com/1/thumbnails/auto/' + encodeURIComponent(path) + '?format=jpeg&size=xl' + '&access_token=' + req.options.access_token;
 		}
 
 		if (!o.id) {

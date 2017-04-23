@@ -26,7 +26,7 @@
 				events: 'wl.calendars',
 				photos: 'wl.photos',
 				videos: 'wl.photos',
-				friends: 'wl.contacts_emails',
+				friends: 'wl.contacts_emails,w1.contacts_photos',
 				files: 'wl.skydrive',
 				publish: 'wl.share',
 				publish_files: 'wl.skydrive_update',
