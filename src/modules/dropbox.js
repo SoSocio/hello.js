@@ -213,7 +213,7 @@
 		var path = (o.root !== 'dropbox' ? o.root : '') + o.path.replace(/\&/g, '%26');
 		path = path.replace(/^\//, '');
 		if (o.thumb_exists) {
-			o.thumbnail = 'https://api-content.dropbox.com/1/thumbnails/auto/' + encodeURIComponent(path) + '?format=jpeg&size=m' + '&access_token=' + req.options.access_token;
+			o.thumbnail = 'https://content.dropboxapi.com/1/thumbnails/auto/' + encodeURIComponent(path) + '?format=jpeg&size=m' + '&access_token=' + req.options.access_token;
 		}
 
 		o.type = (o.is_dir ? 'folder' : o.mime_type);

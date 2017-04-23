@@ -34,7 +34,7 @@
 			},
 
 			// Refresh the access_token
-			refresh: true,
+			refresh: false,
 
 			login: function(p) {
 
@@ -43,6 +43,9 @@
 				if (p.options.force) {
 					p.qs.auth_type = 'reauthenticate';
 				}
+
+				// Set the display value
+				p.qs.display = p.options.display || 'popup';
 			},
 
 			logout: function(callback, options) {
@@ -64,7 +67,7 @@
 			},
 
 			// API Base URL
-			base: 'https://graph.facebook.com/v2.4/',
+			base: 'https://graph.facebook.com/v2.7/',
 
 			// Map GET requests
 			get: {

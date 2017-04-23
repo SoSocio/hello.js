@@ -39,7 +39,7 @@ module.exports = function(grunt) {
 				'dist/hello.all.js': [
 					'src/hello.polyfill.js',
 					'src/hello.js',
-					'src/hello.chromeapp.js',
+					//'src/hello.chromeapp.js',
 					'src/hello.phonegap.js',
 					'src/modules/dropbox.js',
 					'src/modules/facebook.js',
